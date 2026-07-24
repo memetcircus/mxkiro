@@ -1,15 +1,10 @@
 import { AdjustmentAction } from '@logitech/plugin-sdk';
-import type { AdjustmentActionExecuteEvent } from '@logitech/plugin-sdk';
-import type { BridgeClient } from '../bridge/bridge-client.js';
+import type { BridgeClient } from '../bridge/bridge-client';
 
-/**
- * Handles dial rotation for session navigation.
- * Clockwise = next session, Counter-clockwise = previous session.
- */
 export class DialNavigateAction extends AdjustmentAction {
   readonly name = 'kiro_dial_navigate';
   displayName = 'Session Navigate';
-  description = 'Navigate between Kiro sessions';
+  description = 'Navigate between Kiro sessions with the dial';
   readonly hasReset = true;
 
   private bridge: BridgeClient;
@@ -19,7 +14,7 @@ export class DialNavigateAction extends AdjustmentAction {
     this.bridge = bridge;
   }
 
-  execute(event: AdjustmentActionExecuteEvent): void {
+  execute(event: { tick: number }): void {
     this.bridge.send({
       type: 'dial_rotate',
       ticks: event.tick,

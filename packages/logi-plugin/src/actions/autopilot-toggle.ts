@@ -1,10 +1,6 @@
 import { CommandAction } from '@logitech/plugin-sdk';
-import type { BridgeClient } from '../bridge/bridge-client.js';
+import type { BridgeClient } from '../bridge/bridge-client';
 
-/**
- * Toggles Kiro Autopilot mode on/off.
- * Mapped to dialpad bottom-left button.
- */
 export class AutopilotToggleAction extends CommandAction {
   readonly name = 'kiro_autopilot_toggle';
   displayName = 'Autopilot';

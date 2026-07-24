@@ -1,24 +1,18 @@
 import WebSocket from 'ws';
-import { BRIDGE_WS_URL } from '@mxkiro/shared';
-import type { PluginToBridgeMessage, BridgeToPluginMessage } from '@mxkiro/shared';
 
-type MessageHandler = (msg: BridgeToPluginMessage) => void;
+const BRIDGE_WS_URL = 'ws://localhost:9847';
 
-/**
- * WebSocket client that connects to the Bridge Service.
- * Sends button/dial events and receives state updates.
- */
+interface PluginMessage {
+  type: string;
+  [key: string]: any;
+}
+
 export class BridgeClient {
   private ws: WebSocket | null = null;
-  private messageHandler: MessageHandler | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  onMessage(handler: MessageHandler): void {
-    this.messageHandler = handler;
-  }
-
   async connect(): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       this.ws = new WebSocket(BRIDGE_WS_URL);
 
       this.ws.on('open', () => {
@@ -28,10 +22,10 @@ export class BridgeClient {
 
       this.ws.on('message', (data) => {
         try {
-          const msg = JSON.parse(data.toString()) as BridgeToPluginMessage;
-          this.messageHandler?.(msg);
-        } catch (err) {
-          console.error('❌ Invalid message from bridge:', err);
+          const msg = JSON.parse(data.toString());
+          this.handleMessage(msg);
+        } catch {
+          // ignore
         }
       });
 
@@ -41,26 +35,31 @@ export class BridgeClient {
       });
 
       this.ws.on('error', (err) => {
-        console.error('❌ Bridge connection error:', err.message);
+        console.error('❌ Bridge error:', err.message);
         this.scheduleReconnect();
-        resolve(); // Don't block startup
+        reject(err);
       });
     });
   }
 
-  send(msg: PluginToBridgeMessage): void {
+  send(msg: PluginMessage): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg));
     } else {
-      console.warn('⚠️ Bridge not connected, message dropped:', msg.type);
+      console.warn('⚠️ Bridge not connected, dropped:', msg.type);
     }
+  }
+
+  private handleMessage(msg: any): void {
+    console.log('📨 Bridge →', msg.type, msg);
+    // TODO: Update LCD based on state changes
   }
 
   private scheduleReconnect(): void {
     if (this.reconnectTimer) return;
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
-      this.connect();
+      this.connect().catch(() => {});
     }, 3000);
   }
 }

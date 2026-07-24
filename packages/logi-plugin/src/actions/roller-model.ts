@@ -1,15 +1,10 @@
 import { AdjustmentAction } from '@logitech/plugin-sdk';
-import type { AdjustmentActionExecuteEvent } from '@logitech/plugin-sdk';
-import type { BridgeClient } from '../bridge/bridge-client.js';
+import type { BridgeClient } from '../bridge/bridge-client';
 
-/**
- * Handles roller rotation for AI model selection.
- * Scroll up/down through available models.
- */
 export class RollerModelAction extends AdjustmentAction {
   readonly name = 'kiro_roller_model';
   displayName = 'Model Select';
-  description = 'Switch AI model';
+  description = 'Switch AI model with the roller';
   readonly hasReset = false;
 
   private bridge: BridgeClient;
@@ -19,7 +14,7 @@ export class RollerModelAction extends AdjustmentAction {
     this.bridge = bridge;
   }
 
-  execute(event: AdjustmentActionExecuteEvent): void {
+  execute(event: { tick: number }): void {
     this.bridge.send({
       type: 'roller_rotate',
       ticks: event.tick,

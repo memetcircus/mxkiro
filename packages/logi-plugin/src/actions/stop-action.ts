@@ -1,9 +1,6 @@
 import { CommandAction } from '@logitech/plugin-sdk';
-import type { BridgeClient } from '../bridge/bridge-client.js';
+import type { BridgeClient } from '../bridge/bridge-client';
 
-/**
- * Stop/Cancel button — immediately cancels current Kiro operation.
- */
 export class StopAction extends CommandAction {
   readonly name = 'kiro_stop';
   displayName = 'Stop Kiro';

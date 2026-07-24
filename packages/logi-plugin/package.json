@@ -1,21 +1,35 @@
 {
-  "name": "@mxkiro/logi-plugin",
+  "name": "kiro-mx-console",
   "version": "0.1.0",
-  "description": "Logi Actions SDK plugin for Kiro MX Console",
-  "main": "dist/index.js",
+  "description": "Kiro × MX Creative Console - Physical AI coding companion",
   "type": "module",
+  "main": "./dist/index.mjs",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc --watch",
-    "build:pack": "npm run build && echo 'TODO: pack to .lplug4'"
+    "build": "npm run typecheck && tsup",
+    "build:prod": "npm run typecheck && cross-env NODE_ENV=production tsup",
+    "build:pack": "npm run build:prod && npm run pack",
+    "pack": "logitoolkit pack",
+    "link": "logitoolkit link",
+    "unlink": "logitoolkit unlink",
+    "typecheck": "tsc --noEmit",
+    "watch": "npm run typecheck && tsup --watch"
+  },
+  "author": "memetcircus",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
   },
   "dependencies": {
-    "@logitech/plugin-sdk": "latest",
-    "@mxkiro/shared": "*",
+    "@logitech/plugin-sdk": "0.1.1",
     "ws": "^8.17.0"
   },
   "devDependencies": {
+    "@logitech/plugin-toolkit": "0.1.1",
+    "@types/node": "^22.18.8",
     "@types/ws": "^8.5.10",
-    "typescript": "^5.5.0"
+    "cross-env": "^7.0.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.3",
+    "yaml": "^2.8.1"
   }
 }
