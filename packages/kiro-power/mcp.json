@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "mx-console": {
+      "command": "node",
+      "args": ["./node_modules/@mxkiro/bridge/dist/mcp-server.js"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "mx_send_notification",
+        "mx_update_buttons",
+        "mx_show_animation",
+        "mx_set_status"
+      ]
+    }
+  }
+}

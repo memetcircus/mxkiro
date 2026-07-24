@@ -1,0 +1,50 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "mx-agent-working",
+      "description": "Notify MX Console when user submits a prompt (agent starts working)",
+      "trigger": "UserPromptSubmit",
+      "action": {
+        "type": "command",
+        "command": "curl -s http://localhost:9848/state/working"
+      },
+      "timeout": 5,
+      "enabled": true
+    },
+    {
+      "name": "mx-agent-idle",
+      "description": "Notify MX Console when agent finishes its turn",
+      "trigger": "Stop",
+      "action": {
+        "type": "command",
+        "command": "curl -s http://localhost:9848/state/idle"
+      },
+      "timeout": 5,
+      "enabled": true
+    },
+    {
+      "name": "mx-tool-running",
+      "description": "Notify MX Console before a tool executes",
+      "trigger": "PreToolUse",
+      "matcher": ".*",
+      "action": {
+        "type": "command",
+        "command": "curl -s http://localhost:9848/state/working"
+      },
+      "timeout": 5,
+      "enabled": true
+    },
+    {
+      "name": "mx-task-complete",
+      "description": "Notify MX Console when a spec task completes",
+      "trigger": "PostTaskExec",
+      "action": {
+        "type": "command",
+        "command": "curl -s http://localhost:9848/state/success"
+      },
+      "timeout": 5,
+      "enabled": true
+    }
+  ]
+}

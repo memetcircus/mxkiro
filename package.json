@@ -1,0 +1,24 @@
+{
+  "name": "mxkiro",
+  "version": "0.1.0",
+  "description": "Kiro × MX Creative Console - Physical AI coding companion",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:bridge": "npm run dev --workspace=packages/bridge",
+    "dev:plugin": "npm run watch --workspace=packages/logi-plugin",
+    "build": "npm run build --workspaces",
+    "generate:sprites": "tsx scripts/generate-sprites.ts",
+    "clean": "rm -rf packages/*/dist"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "author": "Akif",
+  "license": "MIT",
+  "dependencies": {
+    "canvas": "^3.2.3"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.lplug4
+.env
+.DS_Store
+*.log
+# Keep generated sprites in repo (node-canvas dependency not needed at runtime)

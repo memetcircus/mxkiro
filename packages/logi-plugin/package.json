@@ -1,0 +1,21 @@
+{
+  "name": "@mxkiro/logi-plugin",
+  "version": "0.1.0",
+  "description": "Logi Actions SDK plugin for Kiro MX Console",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "build:pack": "npm run build && echo 'TODO: pack to .lplug4'"
+  },
+  "dependencies": {
+    "@logitech/plugin-sdk": "latest",
+    "@mxkiro/shared": "*",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.5.0"
+  }
+}

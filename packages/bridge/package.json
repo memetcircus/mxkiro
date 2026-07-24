@@ -1,0 +1,21 @@
+{
+  "name": "@mxkiro/bridge",
+  "version": "0.1.0",
+  "description": "Bridge service between Logi Plugin and Kiro",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx --watch src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@mxkiro/shared": "*",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.16.0",
+    "typescript": "^5.5.0"
+  }
+}

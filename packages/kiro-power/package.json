@@ -1,0 +1,12 @@
+{
+  "name": "@mxkiro/kiro-power",
+  "version": "0.1.0",
+  "description": "Kiro Power package for MX Creative Console integration",
+  "files": [
+    "POWER.md",
+    "mcp.json",
+    "steering/",
+    "skills/",
+    "hooks/"
+  ]
+}
