@@ -125,6 +125,27 @@ httpServer.onStateChange((state) => {
   }
 });
 
+httpServer.onPrompt((text) => {
+  console.log('💬 Sending prompt to Kiro:', text.substring(0, 60));
+  acpClient.sendSkillPrompt(text);
+});
+
+httpServer.onSessionNavigate((ticks) => {
+  const session = sessionMonitor.navigateBy(ticks);
+  if (session) {
+    acpClient.loadSession(session.id);
+  }
+});
+
+httpServer.onModelSwitch((ticks) => {
+  currentModelIndex += ticks > 0 ? 1 : -1;
+  if (currentModelIndex < 0) currentModelIndex = AVAILABLE_MODELS.length - 1;
+  if (currentModelIndex >= AVAILABLE_MODELS.length) currentModelIndex = 0;
+  const model = AVAILABLE_MODELS[currentModelIndex]!;
+  acpClient.setModel(model.id);
+  console.log(`🤖 Model → ${model.name}`);
+});
+
 acpClient.onNotification((notification) => {
   console.log('📡 ACP →', notification.type);
   wsServer.broadcast(notification);
