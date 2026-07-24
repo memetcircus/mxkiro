@@ -11,6 +11,7 @@
     "dev:plugin": "npm run watch --workspace=packages/logi-plugin",
     "build": "npm run build --workspaces",
     "generate:sprites": "tsx scripts/generate-sprites.ts",
+    "setup": "tsx scripts/setup.ts",
     "clean": "rm -rf packages/*/dist"
   },
   "engines": {
