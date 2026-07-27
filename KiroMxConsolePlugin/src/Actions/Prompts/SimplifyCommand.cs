@@ -2,17 +2,11 @@ namespace Loupedeck.KiroMxConsolePlugin
 {
     using System;
 
-    public class SimplifyCommand : PluginDynamicCommand
+    public class SimplifyCommand : AnimatedPromptCommand
     {
-        private readonly BridgeClient _bridge = new BridgeClient();
+        public SimplifyCommand() : base("Simplify", "Simplify code, remove over-engineering.", tileIndex: 8) { }
 
-        public SimplifyCommand()
-            : base("Simplify", "Simplify code, remove over-engineering.", "Kiro Prompts") { }
-
-        protected override void RunCommand(String actionParameter)
-        {
-            _ = this._bridge.SendPromptAsync("Simplify this code. Remove over-engineering, flatten unnecessary abstractions, make it readable.");
-        }
+        protected override String Prompt => "simplify this code";
 
         protected override String GetCommandDisplayName(String actionParameter, PluginImageSize imageSize) => "Simplify";
     }

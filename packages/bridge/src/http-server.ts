@@ -7,10 +7,17 @@ type NavigateHandler = (ticks: number) => void;
 
 export class HttpServer {
   private port: number;
+  private currentState: string = 'idle';
+  private messageCount: number = 0;
+  private healthLevel: string = 'normal';
   private stateChangeHandler: StateChangeHandler | null = null;
   private promptHandler: PromptHandler | null = null;
   private sessionNavigateHandler: NavigateHandler | null = null;
   private modelSwitchHandler: NavigateHandler | null = null;
+  private sessionResetHandler: (() => void) | null = null;
+  private newSessionHandler: (() => void) | null = null;
+  private cancelHandler: (() => void) | null = null;
+  private screenshotHandler: (() => void) | null = null;
 
   constructor(port: number) {
     this.port = port;
@@ -18,6 +25,31 @@ export class HttpServer {
 
   onStateChange(handler: StateChangeHandler): void {
     this.stateChangeHandler = handler;
+  }
+
+  onSessionReset(handler: () => void): void {
+    this.sessionResetHandler = handler;
+  }
+
+  onNewSession(handler: () => void): void {
+    this.newSessionHandler = handler;
+  }
+
+  onCancel(handler: () => void): void {
+    this.cancelHandler = handler;
+  }
+
+  onScreenshot(handler: () => void): void {
+    this.screenshotHandler = handler;
+  }
+
+  setState(state: string): void {
+    this.currentState = state;
+  }
+
+  setHealth(messageCount: number, healthLevel: string): void {
+    this.messageCount = messageCount;
+    this.healthLevel = healthLevel;
   }
 
   onPrompt(handler: PromptHandler): void {
@@ -39,7 +71,7 @@ export class HttpServer {
       // GET /health
       if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok' }));
+        res.end(JSON.stringify({ status: 'ok', state: this.currentState, messageCount: this.messageCount, healthLevel: this.healthLevel }));
         return;
       }
 
@@ -52,7 +84,7 @@ export class HttpServer {
         if (state) {
           this.stateChangeHandler?.(state);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ ok: true, state }));
+          res.end(JSON.stringify({ ok: true, state: this.currentState }));
         } else {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: `Unknown state: ${stateValue}` }));
@@ -87,6 +119,48 @@ export class HttpServer {
         this.modelSwitchHandler?.(ticks);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, ticks }));
+        return;
+      }
+
+      // GET /session/reset — reset message counter (new session started)
+      if (url.pathname === '/session/reset' && req.method === 'GET') {
+        this.messageCount = 0;
+        this.healthLevel = 'normal';
+        this.sessionResetHandler?.();
+        console.log('🔄 Session reset — counter cleared');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, messageCount: 0, healthLevel: 'normal' }));
+        return;
+      }
+
+      // GET /session/new — reset counter + open new session in IDE
+      if (url.pathname === '/session/new' && req.method === 'GET') {
+        this.messageCount = 0;
+        this.healthLevel = 'normal';
+        this.sessionResetHandler?.();
+        this.newSessionHandler?.();
+        console.log('🆕 New session — counter reset + IDE signal');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, messageCount: 0, healthLevel: 'normal' }));
+        return;
+      }
+
+      // GET /cancel — stop Kiro and set state to idle
+      if (url.pathname === '/cancel' && req.method === 'GET') {
+        this.currentState = 'idle';
+        this.cancelHandler?.();
+        console.log('🛑 Cancel — stopping Kiro');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, state: 'idle' }));
+        return;
+      }
+
+      // GET /screenshot — capture screen area and paste into chat
+      if (url.pathname === '/screenshot' && req.method === 'GET') {
+        this.screenshotHandler?.();
+        console.log('📸 Screenshot requested');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
         return;
       }
 

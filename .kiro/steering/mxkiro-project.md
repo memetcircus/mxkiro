@@ -34,10 +34,18 @@ MX Creative Console → C# Plugin (Logi SDK) → HTTP → Bridge Service (Node.j
 ## Current Status
 - ✅ C# plugin loads in Logi Plugin Service
 - ✅ Actions visible on MX Creative Console LCD buttons
-- ✅ Button press → Bridge HTTP → prompt received (verified on real hardware)
-- 🔲 ACP connection to Kiro CLI (next step)
-- 🔲 Ghost animation on LCD
-- 🔲 Session health monitor fire effect
+- ✅ Button press → Bridge HTTP → Kiro IDE chat (AppleScript, Cmd+L)
+- ✅ Ghost walk animation on LCD (real Kiro icon, 30 frames, soldan sağa + mirror)
+- ✅ State sync via agentStop hook (animation starts/stops with Kiro working state)
+- ✅ Short prompts (explain this file, criticize this code, etc.)
+- ✅ kiro-cli installed and authenticated
+- ✅ Session health monitor fire effect (message count proxy, fire ghost at critical)
+- ✅ Stop/Cancel physical button (Ctrl+C cancel, 2s suppression guard)
+- ✅ Dial session navigation (18 notch threshold, Cmd+Alt+Arrow)
+- ✅ Screenshot → Kiro chat (native crosshair, NSPasteboard file paste)
+- 🔲 Model selector roller
+- 🔲 Context-aware button pages (file type based)
+- 🔲 Bridge auto-start with Logi Plugin Service
 
 ## Tech Stack
 - C# / .NET 10 — Logi plugin
@@ -66,7 +74,7 @@ npm run generate:sprites
 `.kiro/specs/kiro-mx-console/` — requirements.md, design.md, tasks.md
 
 ## Next Priority Tasks
-1. Wire ACP client so Bridge sends prompts to Kiro chat
-2. Add ghost walk animation frames to LCD buttons via C# plugin
-3. Session health monitor with fire animation
-4. Kiro hooks integration for real-time state feedback
+1. Model selector roller
+2. Context-aware button pages (file type based)
+3. Bridge auto-start with Logi Plugin Service
+4. Page layout redesign (utility actions on page 1, prompts on page 2)

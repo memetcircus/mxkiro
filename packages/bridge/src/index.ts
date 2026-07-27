@@ -1,4 +1,4 @@
-import { BRIDGE_PORT, AVAILABLE_MODELS, HealthLevel } from '@mxkiro/shared';
+import { BRIDGE_PORT, AVAILABLE_MODELS, HealthLevel, KiroState } from '@mxkiro/shared';
 import { WsServer } from './ws-server.js';
 import { HttpServer } from './http-server.js';
 import { AcpClient } from './acp-client.js';
@@ -24,6 +24,25 @@ const shortcuts = new ShortcutExecutor();
 // Model tracking
 let currentModelIndex = 0;
 
+// Session health — active IDE chat counter
+let messageCount = 0;
+let bridgeState = KiroState.IDLE;
+let suppressWorkingUntil = 0;
+const CANCEL_WORKING_SUPPRESSION_MS = 2000;
+
+// Health thresholds
+const HEALTH_NORMAL_MAX = 15;
+const HEALTH_THINKING_MAX = 25;
+const HEALTH_WORRIED_MAX = 35;
+// Above 35 = angry/panic
+
+function getHealthLevel(): string {
+  if (messageCount <= HEALTH_NORMAL_MAX) return 'normal';
+  if (messageCount <= HEALTH_THINKING_MAX) return 'thinking';
+  if (messageCount <= HEALTH_WORRIED_MAX) return 'worried';
+  return 'critical';
+}
+
 // WebSocket server — Logi Plugin connects here
 const wsServer = new WsServer(BRIDGE_PORT);
 
@@ -47,11 +66,11 @@ wsServer.onMessage((msg) => {
       }
 
       if (button.type === 'skill' || button.type === 'steering') {
-        acpClient.sendSkillPrompt(button.value);
+        shortcuts.sendToKiroChat(button.value);
       } else if (button.type === 'shortcut') {
         shortcuts.execute(button.value);
       } else if (button.type === 'command') {
-        acpClient.sendCommand(button.value);
+        shortcuts.sendToKiroChat(button.value);
       }
       break;
     }
@@ -110,31 +129,120 @@ wsServer.onMessage((msg) => {
 // --- Wire Kiro → Bridge → Plugin ---
 
 httpServer.onStateChange((state) => {
-  console.log('🔔 Kiro hook →', state);
-  wsServer.broadcast({ type: 'state_change', state });
-
-  // Check session health on state changes
-  const health = sessionMonitor.checkHealth();
-  if (health.level !== HealthLevel.NORMAL) {
-    wsServer.broadcast({
-      type: 'session_health',
-      tokenCount: health.tokenCount,
-      messageCount: health.messageCount,
-      level: health.level,
-    });
+  // A promptSubmit hook can arrive just after a physical cancel request.
+  // Ignore only that stale working event so cancellation remains authoritative.
+  if (state === KiroState.WORKING && Date.now() < suppressWorkingUntil) {
+    console.log('🛑 Ignored stale working hook after cancel');
+    httpServer.setState(KiroState.IDLE);
+    return;
   }
+
+  console.log('🔔 Kiro hook →', state);
+  const previousState = bridgeState;
+  bridgeState = state;
+  httpServer.setState(state);
+
+  // Count one exchange only when entering working state.
+  if (state === KiroState.WORKING && previousState !== KiroState.WORKING) {
+    messageCount++;
+    httpServer.setHealth(messageCount, getHealthLevel());
+    console.log(`📊 Message count: ${messageCount} (health: ${getHealthLevel()})`);
+  }
+
+  // Clear auto-idle timer when hook reports state
+  if (idleTimer && state === KiroState.IDLE) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+
+  wsServer.broadcast({ type: 'state_change', state });
 });
+
+// Auto-idle timer — fallback if hook doesn't fire
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
 httpServer.onPrompt((text) => {
-  console.log('💬 Sending prompt to Kiro:', text.substring(0, 60));
-  acpClient.sendSkillPrompt(text);
+  // Shorten long prompts from C# plugin (until plugin is rebuilt with short prompts)
+  const shortPrompt = shortenPrompt(text);
+  console.log('💬 Sending prompt to Kiro IDE:', shortPrompt);
+  httpServer.setState('working');
+  shortcuts.sendToKiroChat(shortPrompt);
+
+  // Reset any existing timer, set long fallback (2 min) in case hook never fires
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    httpServer.setState('idle');
+    console.log('⏱️ Auto-idle fallback (2min)');
+  }, 120000);
 });
 
-httpServer.onSessionNavigate((ticks) => {
-  const session = sessionMonitor.navigateBy(ticks);
-  if (session) {
-    acpClient.loadSession(session.id);
+function shortenPrompt(text: string): string {
+  const mapping: [RegExp, string][] = [
+    [/^Explain this code/i, 'explain this file'],
+    [/^Be honest and critical/i, 'criticize this code'],
+    [/^Simplify this code/i, 'simplify this code'],
+    [/^Document this code/i, 'document this code'],
+    [/^Find and fix the bug/i, 'find and fix the bug'],
+    [/^Optimize the performance/i, 'optimize this code'],
+    [/^Review this code/i, 'review this code'],
+    [/^Refactor this code/i, 'refactor this code'],
+    [/^Write comprehensive tests/i, 'write tests for this code'],
+  ];
+
+  for (const [pattern, short] of mapping) {
+    if (pattern.test(text)) return short;
   }
+  return text;
+}
+
+httpServer.onSessionReset(() => {
+  messageCount = 0;
+  bridgeState = KiroState.IDLE;
+  suppressWorkingUntil = 0;
+  console.log('📊 Message counter reset to 0');
+});
+
+httpServer.onNewSession(() => {
+  messageCount = 0;
+  bridgeState = KiroState.IDLE;
+  suppressWorkingUntil = 0;
+  // Open new session in Kiro IDE via Shift+Cmd+L
+  void shortcuts.execute('shift+cmd+l').catch((error: Error) => {
+    console.error('❌ Failed to open new Kiro IDE session:', error.message);
+  });
+  console.log('🆕 New session opened in Kiro IDE');
+});
+
+httpServer.onCancel(() => {
+  suppressWorkingUntil = Date.now() + CANCEL_WORKING_SUPPRESSION_MS;
+  bridgeState = KiroState.IDLE;
+  httpServer.setState(KiroState.IDLE);
+
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+
+  wsServer.broadcast({ type: 'state_change', state: KiroState.IDLE });
+
+  void shortcuts.cancelKiroGeneration().catch((error: Error) => {
+    console.error('❌ Failed to cancel Kiro IDE generation:', error.message);
+  });
+});
+
+httpServer.onScreenshot(() => {
+  void shortcuts.screenshotToChat().catch((error: Error) => {
+    console.error('❌ Screenshot failed:', error.message);
+  });
+});
+
+// Session navigation — direct, no threshold
+httpServer.onSessionNavigate((ticks) => {
+  const direction = ticks > 0 ? 'right' : 'left';
+  void shortcuts.navigateKiroSession(direction).catch((error: any) => {
+    console.error('❌ Session navigation failed:', error.message);
+  });
+  console.log(`🔄 Session navigate: ${direction}`);
 });
 
 httpServer.onModelSwitch((ticks) => {
@@ -146,6 +254,8 @@ httpServer.onModelSwitch((ticks) => {
   console.log(`🤖 Model → ${model.name}`);
 });
 
+// Scroll — removed; users assign Logi's native "Mouse Scroll" to the roller instead
+
 acpClient.onNotification((notification) => {
   console.log('📡 ACP →', notification.type);
   wsServer.broadcast(notification);
@@ -155,11 +265,18 @@ acpClient.onNotification((notification) => {
 
 await wsServer.start();
 await httpServer.start();
+await acpClient.connect();
 
 console.log('');
 console.log(`✅ MX Kiro Bridge ready!`);
 console.log(`   WebSocket: ws://localhost:${BRIDGE_PORT}`);
 console.log(`   HTTP (hooks): http://localhost:${BRIDGE_PORT + 1}`);
+console.log(`   ACP: ${acpClient.isConnected() ? '🟢 connected' : '🟡 offline mode'}`);
 console.log(`   Sessions: ${sessionMonitor.getSessionCount()} found`);
 console.log('');
-console.log('   Waiting for plugin connection...');
+if (acpClient.isConnected()) {
+  console.log('   🎮 Ready — button presses will reach Kiro!');
+} else {
+  console.log('   ⚠️  Kiro CLI not available — prompts will be queued');
+  console.log('   Install: curl -fsSL https://cli.kiro.dev/install | bash');
+}

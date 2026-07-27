@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Notify Bridge Working",
+  "description": "When any prompt is submitted to Kiro (from keyboard or MX Console), notify the bridge to set state to working (starts ghost animation on MX Console LCD).",
+  "version": "1",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "curl -s http://localhost:9848/state/working"
+  }
+}

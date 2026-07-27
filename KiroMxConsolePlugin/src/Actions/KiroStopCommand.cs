@@ -1,27 +1,33 @@
 namespace Loupedeck.KiroMxConsolePlugin
 {
     using System;
+    using System.Net.Http;
 
     /// <summary>
-    /// Stops/cancels the current Kiro operation.
+    /// Stops/cancels the current Kiro operation through the Bridge.
     /// </summary>
     public class KiroStopCommand : PluginDynamicCommand
     {
-        private readonly BridgeClient _bridge;
+        private static readonly HttpClient Http = new HttpClient();
 
         public KiroStopCommand()
-            : base("Stop Kiro", "Cancel current Kiro operation", "Kiro Controls")
-        {
-            this._bridge = new BridgeClient();
-        }
+            : base("Stop Kiro", "Cancel current Kiro operation", "Kiro Controls") { }
 
-        protected override void RunCommand(String actionParameter)
+        protected override async void RunCommand(String actionParameter)
         {
-            _ = this._bridge.SendCancelAsync();
-            PluginLog.Info("Kiro stop sent");
+            try
+            {
+                using var response = await Http.GetAsync("http://localhost:9848/cancel");
+                response.EnsureSuccessStatusCode();
+                PluginLog.Info("🛑 Cancel sent to bridge");
+            }
+            catch (Exception ex)
+            {
+                PluginLog.Warning($"Failed to cancel Kiro: {ex.Message}");
+            }
         }
 
         protected override String GetCommandDisplayName(String actionParameter, PluginImageSize imageSize) =>
-            "⏹️\nStop";
+            "Stop";
     }
 }

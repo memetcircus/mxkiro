@@ -1,38 +1,80 @@
 namespace Loupedeck.KiroMxConsolePlugin
 {
     using System;
+    using System.Threading;
 
     /// <summary>
-    /// Dial adjustment for navigating between Kiro sessions.
-    /// Clockwise = next session, Counter-clockwise = previous session.
+    /// Dial adjustment for navigating between Kiro session tabs.
+    /// Accumulates notches locally and fires navigation only after threshold is reached.
+    /// This avoids over-sensitivity — user needs a deliberate rotation to switch sessions.
     /// </summary>
     public class KiroSessionDial : PluginDynamicAdjustment
     {
         private readonly BridgeClient _bridge;
-        private Int32 _sessionIndex = 0;
+        private Int32 _accumulator = 0;
+        private Timer _resetTimer;
+        private readonly Object _lock = new Object();
+
+        // Require 18 notches in the same direction within 4 seconds to fire
+        private const Int32 Threshold = 18;
+        private const Int32 ResetMs = 4000;
 
         public KiroSessionDial()
-            : base("Session Navigate", "Navigate between Kiro sessions", "Kiro Controls", hasReset: true)
+            : base("Session Navigate", "Navigate between Kiro session tabs", "Kiro Controls", hasReset: true)
         {
             this._bridge = new BridgeClient();
         }
 
         protected override void ApplyAdjustment(String actionParameter, Int32 diff)
         {
-            this._sessionIndex += diff;
-            if (this._sessionIndex < 0) this._sessionIndex = 0;
-            _ = this._bridge.SendSessionNavigateAsync(diff);
+            lock (this._lock)
+            {
+                // If direction changed, reset
+                if ((this._accumulator > 0 && diff < 0) || (this._accumulator < 0 && diff > 0))
+                {
+                    this._accumulator = 0;
+                }
+
+                this._accumulator += diff;
+
+                // Reset timer on each notch
+                this._resetTimer?.Dispose();
+                this._resetTimer = new Timer((_) =>
+                {
+                    lock (this._lock)
+                    {
+                        this._accumulator = 0;
+                    }
+                    this.AdjustmentValueChanged();
+                }, null, ResetMs, Timeout.Infinite);
+
+                // Fire when threshold reached
+                if (Math.Abs(this._accumulator) >= Threshold)
+                {
+                    var ticks = this._accumulator > 0 ? 1 : -1;
+                    this._accumulator = 0;
+                    _ = this._bridge.SendSessionNavigateAsync(ticks);
+                    PluginLog.Info($"Session navigate fired: {ticks}");
+                }
+            }
+
             this.AdjustmentValueChanged();
         }
 
         protected override void RunCommand(String actionParameter)
         {
-            // Reset / confirm active session
-            PluginLog.Info($"Session confirmed at index {this._sessionIndex}");
-            this.AdjustmentValueChanged();
+            // Dial press — reset accumulator
+            lock (this._lock)
+            {
+                this._accumulator = 0;
+            }
+            PluginLog.Info("Session dial pressed — reset");
         }
 
-        protected override String GetAdjustmentValue(String actionParameter) =>
-            $"Session {this._sessionIndex}";
+        protected override String GetAdjustmentValue(String actionParameter)
+        {
+            var acc = this._accumulator;
+            return Math.Abs(acc) > 0 ? $"({acc}/{Threshold})" : "Sessions";
+        }
     }
 }

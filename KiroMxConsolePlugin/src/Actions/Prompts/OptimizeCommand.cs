@@ -2,17 +2,11 @@ namespace Loupedeck.KiroMxConsolePlugin
 {
     using System;
 
-    public class OptimizeCommand : PluginDynamicCommand
+    public class OptimizeCommand : AnimatedPromptCommand
     {
-        private readonly BridgeClient _bridge = new BridgeClient();
+        public OptimizeCommand() : base("Optimize", "Optimize performance.", tileIndex: 5) { }
 
-        public OptimizeCommand()
-            : base("Optimize", "Optimize performance.", "Kiro Prompts") { }
-
-        protected override void RunCommand(String actionParameter)
-        {
-            _ = this._bridge.SendPromptAsync("Optimize the performance of this code. Remove unnecessary computations, reduce algorithmic complexity.");
-        }
+        protected override String Prompt => "optimize this code";
 
         protected override String GetCommandDisplayName(String actionParameter, PluginImageSize imageSize) => "Optimize";
     }

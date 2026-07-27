@@ -10,7 +10,7 @@
  * Run: npx tsx scripts/generate-sprites.ts
  */
 
-import { createCanvas, CanvasRenderingContext2D } from 'canvas';
+import { createCanvas, loadImage, CanvasRenderingContext2D } from 'canvas';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -156,46 +156,63 @@ function drawCircle(ctx: CanvasRenderingContext2D, x: number, y: number, r: numb
 
 // --- Ghost Walk Animation ---
 
-function generateGhostWalkFrames(): void {
-  console.log('👻 Generating ghost walk animation...');
+async function generateGhostWalkFrames(
+  iconFile: string,
+  bgColor: string,
+  outSubdir: string,
+): Promise<void> {
+  console.log(`👻 Generating ghost walk animation (${outSubdir})...`);
 
-  const ghostSize = CANVAS_SIZE * 0.7;
+  const ghostIconPath = join(import.meta.dirname, '..', 'assets', iconFile);
+  const ghostImg = await loadImage(ghostIconPath);
+
+  // Output dirs
+  mkdirSync(join(OUTPUT_DIR, outSubdir), { recursive: true });
+  mkdirSync(join(OUTPUT_DIR, 'tiles', outSubdir), { recursive: true });
+
+  const ghostSize = CANVAS_SIZE * 0.75;
   const ghostY = (CANVAS_SIZE - ghostSize) / 2;
-
-  // Total travel: ghost enters from right, exits left
-  // Start: ghost right edge at canvas right edge (entering)
-  // End: ghost left edge at canvas left edge (exiting)
   const totalTravel = CANVAS_SIZE + ghostSize;
+  const halfFrames = FRAME_COUNT / 2;
 
   for (let frame = 0; frame < FRAME_COUNT; frame++) {
     const canvas = createCanvas(CANVAS_SIZE, CANVAS_SIZE);
     const ctx = canvas.getContext('2d');
 
-    // Purple background
-    ctx.fillStyle = COLORS.purple;
+    // Background (matches icon background exactly)
+    ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-    // Calculate ghost X position
-    // Starts from right (+ghostSize), moves left to (-ghostSize)
-    const progress = frame / FRAME_COUNT;
-    const ghostX = CANVAS_SIZE - progress * totalTravel;
+    const isFirstHalf = frame < halfFrames;
+    const localFrame = isFirstHalf ? frame : frame - halfFrames;
+    const progress = localFrame / halfFrames;
 
     // Slight vertical bob
-    const bobY = Math.sin(progress * Math.PI * 2) * 8;
+    const bobY = Math.sin(progress * Math.PI * 2) * 6;
 
-    drawGhost(ctx, ghostX, ghostY + bobY, ghostSize, 'normal');
+    if (isFirstHalf) {
+      // First half: ghost enters from LEFT, exits RIGHT (as-is)
+      const ghostX = -ghostSize + progress * totalTravel;
+      ctx.drawImage(ghostImg, ghostX, ghostY + bobY, ghostSize, ghostSize);
+    } else {
+      // Second half: ghost enters from RIGHT, exits LEFT (mirrored horizontally)
+      const ghostX = CANVAS_SIZE - progress * totalTravel;
+      ctx.save();
+      ctx.translate(ghostX + ghostSize, ghostY + bobY);
+      ctx.scale(-1, 1);
+      ctx.drawImage(ghostImg, 0, 0, ghostSize, ghostSize);
+      ctx.restore();
+    }
 
     // Save full frame
     const buffer = canvas.toBuffer('image/png');
-    writeFileSync(join(OUTPUT_DIR, 'ghost-walk', `frame-${String(frame).padStart(2, '0')}.png`), buffer);
+    writeFileSync(join(OUTPUT_DIR, outSubdir, `frame-${String(frame).padStart(2, '0')}.png`), buffer);
 
     // Split into 3x3 tiles
     for (let row = 0; row < 3; row++) {
       for (let col = 0; col < 3; col++) {
         const tileCanvas = createCanvas(TILE_SIZE, TILE_SIZE);
         const tileCtx = tileCanvas.getContext('2d');
-
-        // Copy region from full canvas
         const srcX = col * TILE_SIZE;
         const srcY = row * TILE_SIZE;
         tileCtx.drawImage(canvas, srcX, srcY, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE);
@@ -203,7 +220,7 @@ function generateGhostWalkFrames(): void {
         const tileIndex = row * 3 + col;
         const tileBuffer = tileCanvas.toBuffer('image/png');
         writeFileSync(
-          join(OUTPUT_DIR, 'tiles', 'ghost-walk', `frame-${String(frame).padStart(2, '0')}-tile-${tileIndex}.png`),
+          join(OUTPUT_DIR, 'tiles', outSubdir, `frame-${String(frame).padStart(2, '0')}-tile-${tileIndex}.png`),
           tileBuffer
         );
       }
@@ -382,13 +399,16 @@ function generateButtonTemplates(): void {
 
 // --- Main ---
 
-console.log('🎨 MX Kiro Sprite Generator');
-console.log('===========================\n');
+(async () => {
+  console.log('🎨 MX Kiro Sprite Generator');
+  console.log('===========================\n');
 
-generateGhostWalkFrames();
-generateGhostFaces();
-generateFireFrames();
-generateButtonTemplates();
+  await generateGhostWalkFrames('ghost_icon_new_new.png', '#9145fd', 'ghost-walk');
+  await generateGhostWalkFrames('ghost_icon_onfire_new.png', '#9143fb', 'ghost-walk-fire');
+  generateGhostFaces();
+  generateFireFrames();
+  generateButtonTemplates();
 
-console.log('\n✅ All sprites generated!');
-console.log(`   Output: ${OUTPUT_DIR}`);
+  console.log('\n✅ All sprites generated!');
+  console.log(`   Output: ${OUTPUT_DIR}`);
+})();

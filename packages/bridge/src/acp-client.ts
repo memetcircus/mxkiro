@@ -19,6 +19,10 @@ export class AcpClient {
     reject: (reason: any) => void;
   }>();
 
+  isConnected(): boolean {
+    return this.process !== null && !this.process.killed;
+  }
+
   onNotification(handler: NotificationHandler): void {
     this.notificationHandler = handler;
   }
@@ -86,10 +90,23 @@ export class AcpClient {
   }
 
   async sendSkillPrompt(skillOrPrompt: string): Promise<void> {
-    if (!this.sessionId) {
-      await this.createSession();
+    // Auto-reconnect if process died
+    if (!this.isConnected()) {
+      console.log('🔄 ACP reconnecting...');
+      await this.connect();
+      if (!this.isConnected()) {
+        console.warn(`⚠️ ACP offline — cannot send: "${skillOrPrompt.substring(0, 40)}"`);
+        return;
+      }
     }
-    if (!this.sessionId) return;
+
+    // Each prompt gets a fresh session (kiro-cli acp is single-shot)
+    this.sessionId = null;
+    await this.createSession();
+    if (!this.sessionId) {
+      console.warn('⚠️ Failed to create session');
+      return;
+    }
 
     await this.sendRequest('session/prompt', {
       sessionId: this.sessionId,
@@ -103,7 +120,6 @@ export class AcpClient {
   }
 
   async sendCommand(command: string): Promise<void> {
-    // Git and other commands are sent as prompts to Kiro
     const promptMap: Record<string, string> = {
       'git-commit': 'Generate a commit message for the current changes and commit them.',
       'git-push': 'Run git push to push current branch to origin.',
@@ -124,7 +140,7 @@ export class AcpClient {
   }
 
   async cancelSession(): Promise<void> {
-    if (!this.sessionId) return;
+    if (!this.sessionId || !this.isConnected()) return;
     await this.sendRequest('session/cancel', { sessionId: this.sessionId });
     this.notificationHandler?.({
       type: 'state_change',
