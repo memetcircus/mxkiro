@@ -17,6 +17,7 @@ export class HttpServer {
   private sessionResetHandler: (() => void) | null = null;
   private newSessionHandler: (() => void) | null = null;
   private cancelHandler: (() => void) | null = null;
+  private snippetHandler: ((text: string) => void) | null = null;
   private screenshotHandler: (() => void) | null = null;
 
   constructor(port: number) {
@@ -39,13 +40,22 @@ export class HttpServer {
     this.cancelHandler = handler;
   }
 
+  onSnippet(handler: (text: string) => void): void {
+    this.snippetHandler = handler;
+  }
+
   onScreenshot(handler: () => void): void {
     this.screenshotHandler = handler;
   }
 
   setState(state: string): void {
     this.currentState = state;
+    if (state === 'working') {
+      this.lastWorkingTime = Date.now();
+    }
   }
+
+  private lastWorkingTime: number = 0;
 
   setHealth(messageCount: number, healthLevel: string): void {
     this.messageCount = messageCount;
@@ -71,7 +81,13 @@ export class HttpServer {
       // GET /health
       if (url.pathname === '/health') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: 'ok', state: this.currentState, messageCount: this.messageCount, healthLevel: this.healthLevel }));
+        res.end(JSON.stringify({
+          status: 'ok',
+          state: this.currentState,
+          messageCount: this.messageCount,
+          healthLevel: this.healthLevel,
+          contextUsagePercent: this.messageCount,
+        }));
         return;
       }
 
@@ -161,6 +177,16 @@ export class HttpServer {
         console.log('📸 Screenshot requested');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      // GET /snippet?text=... — paste text into chat WITHOUT sending Enter
+      if (url.pathname === '/snippet' && req.method === 'GET') {
+        const text = url.searchParams.get('text') || '';
+        console.log(`📝 Snippet append: "${text.substring(0, 40)}"`);
+        this.snippetHandler?.(text);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, snippet: text }));
         return;
       }
 

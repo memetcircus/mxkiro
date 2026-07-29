@@ -195,7 +195,22 @@ Must activate Kiro → focus chat (`Cmd+L`) → send `Ctrl+C`.
 
 ## Next Priority Tasks
 
-1. **Model selector roller** — Roller to switch between Claude models
-2. **Context-aware button pages** — Different prompts based on file type (.tsx → React prompts)
+1. **Page 1 redesign + snippet buttons** — New layout with 3 utility + 6 snippet append buttons:
+   ```
+   Tile 0: Screen Capture    Tile 1: Be Honest      Tile 2: Just Do It
+   Tile 3: Show Options      Tile 4: Explain Why    Tile 5: Stop
+   Tile 6: Keep Short        Tile 7: No Tests       Tile 8: New Session
+   ```
+   - Utility buttons (Screen Capture, New Session, Stop): immediate action
+   - Snippet buttons (Be Honest, Just Do It, etc.): paste text to chat WITHOUT sending Enter
+   - All 9 buttons show ghost animation when working
+   - Snippet texts configurable from `~/.kiro-mx/config.json`
+   - Default snippets:
+     - Be Honest: "Be honest, criticize. Suggest better alternatives."
+     - Just Do It: "Don't ask questions, just implement it."
+     - Keep Short: "Be concise, short answer."
+     - Explain Why: "Explain your reasoning."
+     - No Tests: "Don't add tests unless I ask."
+     - Show Options: "Give me 2-3 options to choose from."
+2. **Model selector roller** — Roller to switch between Claude models
 3. **Bridge auto-start** — Launch bridge automatically when Logi Plugin Service starts
-4. **Page layout redesign** — Utility actions on page 1, prompts on page 2

@@ -66,6 +66,52 @@ end tell
   }
 
   /**
+   * Append text to Kiro chat input WITHOUT sending Enter.
+   * Useful for snippet buttons that add suffix text to user's prompt.
+   */
+  async appendToChat(text: string): Promise<void> {
+    if (platform() !== 'darwin') {
+      console.warn(`⚠️ appendToChat not implemented for ${platform()}`);
+      return;
+    }
+
+    const escaped = text
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"')
+      .replace(/\n/g, '\\n');
+
+    // 1. Activate Kiro
+    // 2. Focus chat input (Cmd+L)
+    // 3. Move cursor to end (Cmd+End)
+    // 4. Add a space + paste snippet text
+    // 5. Do NOT press Enter — user will send manually
+    const script = `
+tell application "Kiro" to activate
+delay 0.2
+tell application "System Events"
+  keystroke "l" using {command down}
+  delay 0.3
+  key code 119 using {command down}
+  delay 0.1
+  set the clipboard to " ${escaped}"
+  keystroke "v" using {command down}
+end tell
+    `.trim();
+
+    return new Promise((resolve, reject) => {
+      exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error) => {
+        if (error) {
+          console.error(`❌ appendToChat failed:`, error.message);
+          reject(error);
+        } else {
+          console.log(`📝 Snippet appended to Kiro chat`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
    * Cancel the active Kiro chat request using Kiro's chat cancel shortcut.
    * Kiro must have chat focus for Ctrl+C to resolve to workbench.action.chat.cancel.
    */
@@ -79,8 +125,6 @@ end tell
 tell application "Kiro" to activate
 delay 0.2
 tell application "System Events"
-  keystroke "l" using {command down}
-  delay 0.2
   keystroke "c" using {control down}
 end tell
     `.trim();
@@ -222,6 +266,10 @@ if (!newFile) {
   se.keystroke('l', {using: 'command down'});
   delay(0.3);
   se.keystroke('v', {using: 'command down'});
+
+  // Wait for Kiro to read the file, then delete it
+  delay(2);
+  fm.removeItemAtPathError(newFile, null);
   
   'done';
 }

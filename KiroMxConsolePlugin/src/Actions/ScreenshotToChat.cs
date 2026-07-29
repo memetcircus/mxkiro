@@ -3,16 +3,12 @@ namespace Loupedeck.KiroMxConsolePlugin
     using System;
     using System.Net.Http;
 
-    /// <summary>
-    /// Takes an interactive screenshot and pastes it into the active Kiro chat input.
-    /// Does NOT send the message — user adds their prompt text and presses Enter.
-    /// </summary>
-    public class ScreenshotToChat : PluginDynamicCommand
+    public class ScreenshotToChat : AnimatedCommand
     {
         private static readonly HttpClient Http = new HttpClient();
 
         public ScreenshotToChat()
-            : base("Screenshot", "Capture screen area and paste into Kiro chat", "Kiro Controls") { }
+            : base("Screenshot", "Capture screen area and paste into Kiro chat", "Kiro Controls", tileIndex: 0) { }
 
         protected override void RunCommand(String actionParameter)
         {

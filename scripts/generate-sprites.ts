@@ -404,6 +404,8 @@ function generateButtonTemplates(): void {
   console.log('===========================\n');
 
   await generateGhostWalkFrames('ghost_icon_new_new.png', '#9145fd', 'ghost-walk');
+  await generateGhostWalkFrames('ghost_icon_thinking.png', '#9145fd', 'ghost-walk-thinking');
+  await generateGhostWalkFrames('ghost_icon_worried.png', '#9145fd', 'ghost-walk-worried');
   await generateGhostWalkFrames('ghost_icon_onfire_new.png', '#9143fb', 'ghost-walk-fire');
   generateGhostFaces();
   generateFireFrames();

@@ -14,11 +14,8 @@ namespace Loupedeck.KiroMxConsolePlugin
         private const Int32 FrameCount = 30;
         private const Int32 TileCount = 9;
 
-        // Speed varies by health level (fire icon carries the main signal, speed is subtle)
-        private const Int32 SpeedNormal = 100;    // ~10 fps
-        private const Int32 SpeedThinking = 90;   // slightly faster
-        private const Int32 SpeedWorried = 80;    // a bit faster
-        private const Int32 SpeedCritical = 70;   // one notch faster than normal
+        // Animation speed — constant across all health levels
+        private const Int32 AnimationSpeed = 100; // ~10 fps
 
         private static GhostAnimationManager _instance;
         private static readonly Object Lock = new Object();
@@ -26,12 +23,15 @@ namespace Loupedeck.KiroMxConsolePlugin
         private Timer _timer;
         private Int32 _currentFrame;
         private Boolean _isRunning;
-        private Int32 _currentSpeed = SpeedNormal;
 
         // Cached sprite data: [frame * TileCount + tile] = byte[]
-        private Byte[][] _frameData;        // normal (purple) ghost
-        private Byte[][] _frameDataFire;    // critical (fire) ghost
+        private Byte[][] _frameData;           // normal ghost
+        private Byte[][] _frameDataThinking;   // thinking ghost (50-75%)
+        private Byte[][] _frameDataWorried;    // worried ghost (75-90%)
+        private Byte[][] _frameDataFire;       // critical/fire ghost (90%+)
         private Boolean _spritesLoaded;
+        private Boolean _thinkingLoaded;
+        private Boolean _worriedLoaded;
         private Boolean _fireLoaded;
 
         // Subscribers that need to redraw when frame changes
@@ -68,6 +68,20 @@ namespace Loupedeck.KiroMxConsolePlugin
                 else
                 {
                     PluginLog.Warning("👻 Normal sprites not found — animation disabled");
+                }
+
+                var thinkingPath = this.FindSpritesPath("ghost-walk-thinking");
+                if (!String.IsNullOrEmpty(thinkingPath))
+                {
+                    this._frameDataThinking = this.LoadSpriteSet(thinkingPath);
+                    this._thinkingLoaded = this._frameDataThinking != null;
+                }
+
+                var worriedPath = this.FindSpritesPath("ghost-walk-worried");
+                if (!String.IsNullOrEmpty(worriedPath))
+                {
+                    this._frameDataWorried = this.LoadSpriteSet(worriedPath);
+                    this._worriedLoaded = this._frameDataWorried != null;
                 }
 
                 var firePath = this.FindSpritesPath("ghost-walk-fire");
@@ -116,9 +130,8 @@ namespace Loupedeck.KiroMxConsolePlugin
 
             this._isRunning = true;
             this._currentFrame = 0;
-            this._currentSpeed = this.GetSpeedForHealth();
-            this._timer = new Timer(this.OnTick, null, 0, this._currentSpeed);
-            PluginLog.Info($"👻 Ghost animation started (speed: {this._currentSpeed}ms)");
+            this._timer = new Timer(this.OnTick, null, 0, AnimationSpeed);
+            PluginLog.Info("👻 Ghost animation started");
         }
 
         /// <summary>
@@ -146,6 +159,7 @@ namespace Loupedeck.KiroMxConsolePlugin
 
         /// <summary>
         /// Get the sprite data for a specific tile at the current frame.
+        /// Selects sprite set based on current health level.
         /// </summary>
         public Byte[] GetTileData(Int32 tileIndex)
         {
@@ -153,45 +167,25 @@ namespace Loupedeck.KiroMxConsolePlugin
             if (tileIndex < 0 || tileIndex >= TileCount) return null;
 
             var dataIndex = this._currentFrame * TileCount + tileIndex;
+            var health = KiroMxConsolePlugin.HealthLevel;
 
-            // Use fire sprites when session health is critical
-            if (KiroMxConsolePlugin.HealthLevel == "critical" && this._fireLoaded)
+            // Select sprite set based on health level
+            Byte[][] activeSet = health switch
             {
-                if (dataIndex < this._frameDataFire.Length)
-                {
-                    return this._frameDataFire[dataIndex];
-                }
-            }
+                "critical" when this._fireLoaded => this._frameDataFire,
+                "worried" when this._worriedLoaded => this._frameDataWorried,
+                "thinking" when this._thinkingLoaded => this._frameDataThinking,
+                _ => this._frameData,
+            };
 
-            if (dataIndex >= this._frameData.Length) return null;
-            return this._frameData[dataIndex];
+            if (dataIndex >= activeSet.Length) return null;
+            return activeSet[dataIndex];
         }
 
         private void OnTick(Object state)
         {
             this._currentFrame = (this._currentFrame + 1) % FrameCount;
-
-            // Check if speed needs updating based on health
-            var newSpeed = this.GetSpeedForHealth();
-            if (newSpeed != this._currentSpeed)
-            {
-                this._currentSpeed = newSpeed;
-                this._timer?.Change(0, this._currentSpeed);
-            }
-
             this.NotifySubscribers();
-        }
-
-        private Int32 GetSpeedForHealth()
-        {
-            var health = KiroMxConsolePlugin.HealthLevel;
-            return health switch
-            {
-                "thinking" => SpeedThinking,
-                "worried" => SpeedWorried,
-                "critical" => SpeedCritical,
-                _ => SpeedNormal,
-            };
         }
 
         private void NotifySubscribers()

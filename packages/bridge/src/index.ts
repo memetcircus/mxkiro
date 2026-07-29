@@ -5,6 +5,10 @@ import { AcpClient } from './acp-client.js';
 import { ConfigManager } from './config-manager.js';
 import { SessionMonitor } from './session-monitor.js';
 import { ShortcutExecutor } from './shortcut-executor.js';
+import { readdir, readFile } from 'node:fs/promises';
+import { join, basename } from 'node:path';
+import { homedir } from 'node:os';
+import { existsSync } from 'node:fs';
 
 console.log('🌉 MX Kiro Bridge starting...');
 
@@ -28,19 +32,21 @@ let currentModelIndex = 0;
 let messageCount = 0;
 let bridgeState = KiroState.IDLE;
 let suppressWorkingUntil = 0;
-const CANCEL_WORKING_SUPPRESSION_MS = 2000;
+const CANCEL_WORKING_SUPPRESSION_MS = 5000;
 
-// Health thresholds
-const HEALTH_NORMAL_MAX = 15;
-const HEALTH_THINKING_MAX = 25;
-const HEALTH_WORRIED_MAX = 35;
-// Above 35 = angry/panic
+// Real context usage from Kiro IDE session files
+let contextUsagePercent = 0;
+
+// Health thresholds based on real context window usage percentage
+const HEALTH_THINKING_MIN = 50;  // 50%+
+const HEALTH_WORRIED_MIN = 75;   // 75%+
+const HEALTH_CRITICAL_MIN = 90;  // 90%+
 
 function getHealthLevel(): string {
-  if (messageCount <= HEALTH_NORMAL_MAX) return 'normal';
-  if (messageCount <= HEALTH_THINKING_MAX) return 'thinking';
-  if (messageCount <= HEALTH_WORRIED_MAX) return 'worried';
-  return 'critical';
+  if (contextUsagePercent >= HEALTH_CRITICAL_MIN) return 'critical';
+  if (contextUsagePercent >= HEALTH_WORRIED_MIN) return 'worried';
+  if (contextUsagePercent >= HEALTH_THINKING_MIN) return 'thinking';
+  return 'normal';
 }
 
 // WebSocket server — Logi Plugin connects here
@@ -128,6 +134,80 @@ wsServer.onMessage((msg) => {
 
 // --- Wire Kiro → Bridge → Plugin ---
 
+// --- Context Usage Reader ---
+// Reads real context window usage from Kiro IDE workspace session files.
+// Path: ~/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/workspace-sessions/<base64-workspace>/
+
+const KIRO_SESSIONS_BASE = join(
+  homedir(),
+  'Library', 'Application Support', 'Kiro', 'User', 'globalStorage',
+  'kiro.kiroagent', 'workspace-sessions'
+);
+
+async function readContextUsage(): Promise<number> {
+  try {
+    if (!existsSync(KIRO_SESSIONS_BASE)) return 0;
+
+    // Find workspace folders
+    const workspaceDirs = await readdir(KIRO_SESSIONS_BASE);
+
+    let latestUsage = 0;
+    let latestMtime = 0;
+
+    for (const wsDir of workspaceDirs) {
+      const wsPath = join(KIRO_SESSIONS_BASE, wsDir);
+      const files = await readdir(wsPath);
+
+      // Find most recently modified session JSON (not sessions.json)
+      for (const file of files) {
+        if (file === 'sessions.json' || !file.endsWith('.json')) continue;
+        const filePath = join(wsPath, file);
+
+        try {
+          const { mtimeMs } = await import('node:fs').then(fs => fs.statSync(filePath));
+          if (mtimeMs > latestMtime) {
+            const raw = await readFile(filePath, 'utf-8');
+            const data = JSON.parse(raw);
+            if (typeof data.contextUsagePercentage === 'number') {
+              latestUsage = data.contextUsagePercentage;
+              latestMtime = mtimeMs;
+            }
+          }
+        } catch {
+          // Skip unreadable files
+        }
+      }
+    }
+
+    return latestUsage;
+  } catch {
+    return 0;
+  }
+}
+
+// Poll context usage every 2 seconds when working
+let contextPollTimer: ReturnType<typeof setInterval> | null = null;
+
+function startContextPolling() {
+  if (contextPollTimer) return;
+  contextPollTimer = setInterval(async () => {
+    const usage = await readContextUsage();
+    if (usage !== contextUsagePercent) {
+      contextUsagePercent = usage;
+      const level = getHealthLevel();
+      httpServer.setHealth(Math.round(usage), level);
+      console.log(`📊 Context usage: ${usage.toFixed(1)}% (health: ${level})`);
+    }
+  }, 2000);
+}
+
+function stopContextPolling() {
+  if (contextPollTimer) {
+    clearInterval(contextPollTimer);
+    contextPollTimer = null;
+  }
+}
+
 httpServer.onStateChange((state) => {
   // A promptSubmit hook can arrive just after a physical cancel request.
   // Ignore only that stale working event so cancellation remains authoritative.
@@ -142,11 +222,23 @@ httpServer.onStateChange((state) => {
   bridgeState = state;
   httpServer.setState(state);
 
-  // Count one exchange only when entering working state.
+  // Start/stop context usage polling based on state
   if (state === KiroState.WORKING && previousState !== KiroState.WORKING) {
     messageCount++;
-    httpServer.setHealth(messageCount, getHealthLevel());
-    console.log(`📊 Message count: ${messageCount} (health: ${getHealthLevel()})`);
+    startContextPolling();
+    // Read context usage immediately on state change
+    void readContextUsage().then((usage) => {
+      contextUsagePercent = usage;
+      httpServer.setHealth(Math.round(usage), getHealthLevel());
+    });
+  } else if (state === KiroState.IDLE) {
+    // One final read when going idle, then stop polling
+    void readContextUsage().then((usage) => {
+      contextUsagePercent = usage;
+      httpServer.setHealth(Math.round(usage), getHealthLevel());
+      console.log(`📊 Context usage: ${usage.toFixed(1)}% (health: ${getHealthLevel()})`);
+    });
+    stopContextPolling();
   }
 
   // Clear auto-idle timer when hook reports state
@@ -197,20 +289,30 @@ function shortenPrompt(text: string): string {
 
 httpServer.onSessionReset(() => {
   messageCount = 0;
+  contextUsagePercent = 0;
   bridgeState = KiroState.IDLE;
   suppressWorkingUntil = 0;
-  console.log('📊 Message counter reset to 0');
+  httpServer.setHealth(0, 'normal');
+  stopContextPolling();
+  console.log('📊 Session reset — context usage cleared');
 });
 
 httpServer.onNewSession(() => {
   messageCount = 0;
+  contextUsagePercent = 0;
   bridgeState = KiroState.IDLE;
   suppressWorkingUntil = 0;
+  httpServer.setHealth(0, 'normal');
+  stopContextPolling();
   // Open new session in Kiro IDE via Shift+Cmd+L
   void shortcuts.execute('shift+cmd+l').catch((error: Error) => {
     console.error('❌ Failed to open new Kiro IDE session:', error.message);
   });
   console.log('🆕 New session opened in Kiro IDE');
+});
+
+httpServer.onSnippet((text) => {
+  shortcuts.appendToChat(text);
 });
 
 httpServer.onCancel(() => {
@@ -279,4 +381,12 @@ if (acpClient.isConnected()) {
 } else {
   console.log('   ⚠️  Kiro CLI not available — prompts will be queued');
   console.log('   Install: curl -fsSL https://cli.kiro.dev/install | bash');
+}
+
+// Read initial context usage on startup
+const initialUsage = await readContextUsage();
+if (initialUsage > 0) {
+  contextUsagePercent = initialUsage;
+  httpServer.setHealth(Math.round(initialUsage), getHealthLevel());
+  console.log(`   📊 Context usage: ${initialUsage.toFixed(1)}% (health: ${getHealthLevel()})`);
 }

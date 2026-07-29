@@ -3,16 +3,12 @@ namespace Loupedeck.KiroMxConsolePlugin
     using System;
     using System.Net.Http;
 
-    /// <summary>
-    /// Opens a new Kiro chat session and resets the health counter.
-    /// Bridge handles both the counter reset and opening new session in IDE.
-    /// </summary>
-    public class NewSessionCommand : PluginDynamicCommand
+    public class NewSessionCommand : AnimatedCommand
     {
         private static readonly HttpClient Http = new HttpClient();
 
         public NewSessionCommand()
-            : base("New Session", "Start a new Kiro chat session", "Kiro Controls") { }
+            : base("New Session", "Start a new Kiro chat session", "Kiro Controls", tileIndex: 8) { }
 
         protected override void RunCommand(String actionParameter)
         {
