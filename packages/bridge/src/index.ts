@@ -304,10 +304,16 @@ httpServer.onNewSession(() => {
   suppressWorkingUntil = 0;
   httpServer.setHealth(0, 'normal');
   stopContextPolling();
-  // Open new session in Kiro IDE via Shift+Cmd+L
-  void shortcuts.execute('shift+cmd+l').catch((error: Error) => {
-    console.error('❌ Failed to open new Kiro IDE session:', error.message);
-  });
+  // Open new session in Kiro IDE: Cmd+L to focus chat, then Cmd+T for new session
+  void (async () => {
+    try {
+      await shortcuts.execute('cmd+l');
+      await new Promise(r => setTimeout(r, 200));
+      await shortcuts.execute('cmd+t');
+    } catch (error: any) {
+      console.error('❌ Failed to open new Kiro IDE session:', error.message);
+    }
+  })();
   console.log('🆕 New session opened in Kiro IDE');
 });
 
