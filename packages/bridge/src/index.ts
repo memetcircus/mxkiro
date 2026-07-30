@@ -316,7 +316,31 @@ httpServer.onSnippet((text) => {
 });
 
 httpServer.onStruct(() => {
-  shortcuts.structPrompt();
+  void (async () => {
+    try {
+      // 1. Read current chat input text
+      const userText = await shortcuts.readChatInput();
+      if (!userText) {
+        console.warn('📐 Struct: no text in chat input');
+        return;
+      }
+
+      console.log(`📐 Structuring prompt: "${userText.substring(0, 50)}..."`);
+
+      // 2. Build the restructure prompt and send to Kiro IDE chat
+      const fullPrompt = `Rewrite the following as a clear, well-structured English prompt for an AI coding assistant. Only return the rewritten text, nothing else. No code blocks, no explanation.\n\n"${userText}"`;
+      await shortcuts.replaceChatInput(fullPrompt);
+
+      // 3. Press Enter to send
+      await new Promise<void>((resolve) => {
+        exec(`osascript -e 'tell application "System Events" to keystroke return'`, () => resolve());
+      });
+
+      console.log(`📐 Struct prompt sent to Kiro IDE`);
+    } catch (error: any) {
+      console.error('❌ Struct failed:', error.message);
+    }
+  })();
 });
 
 httpServer.onCancel(() => {

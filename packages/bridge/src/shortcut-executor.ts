@@ -1,4 +1,4 @@
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { platform } from 'node:os';
 
 /**
@@ -112,55 +112,83 @@ end tell
   }
 
   /**
-   * Read the current chat input text, prepend a restructure instruction, and send it.
-   * This asks Kiro to rewrite the user's prompt in a clearer, structured way.
+   * Read the current text from Kiro chat input.
+   * Activates Kiro, selects all text in input, copies to clipboard, returns it.
    */
-  async structPrompt(): Promise<void> {
+  async readChatInput(): Promise<string> {
     if (platform() !== 'darwin') {
-      console.warn(`⚠️ structPrompt not implemented for ${platform()}`);
-      return;
+      return '';
     }
 
-    // 1. Activate Kiro, focus chat input
-    // 2. Select all text in input (Cmd+A)
-    // 3. Cut to clipboard (Cmd+X) — this clears the input
-    // 4. Read clipboard, prepend restructure instruction
-    // 5. Paste the full prompt back and send (Enter)
+    // Select all and copy
     const script = `
 tell application "Kiro" to activate
 delay 0.2
 tell application "System Events"
   keystroke "l" using {command down}
-  delay 0.3
+  delay 0.2
   keystroke "a" using {command down}
   delay 0.1
-  keystroke "x" using {command down}
+  keystroke "c" using {command down}
   delay 0.2
+end tell
+    `.trim();
+
+    await new Promise<void>((resolve, reject) => {
+      exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    // Read clipboard directly from Node with explicit UTF-8
+    return new Promise((resolve, reject) => {
+      exec('pbpaste', { encoding: 'buffer' }, (error, stdout) => {
+        if (error) reject(error);
+        else resolve((stdout as unknown as Buffer).toString('utf8').trim());
+      });
+    });
+  }
+
+  /**
+   * Replace the current Kiro chat input text with new text.
+   * Does NOT press Enter — user reviews and sends manually.
+   */
+  async replaceChatInput(text: string): Promise<void> {
+    if (platform() !== 'darwin') {
+      return;
+    }
+
+    // Copy text to clipboard via Node.js spawn (proper UTF-8)
+    await new Promise<void>((resolve, reject) => {
+      const pbcopy = spawn('pbcopy', [], { stdio: ['pipe', 'ignore', 'ignore'] });
+      pbcopy.stdin.write(text, 'utf8');
+      pbcopy.stdin.end();
+      pbcopy.on('close', () => resolve());
+      pbcopy.on('error', reject);
+    });
+
+    // Select all in chat input and paste
+    const script = `
+tell application "Kiro" to activate
+delay 0.2
+tell application "System Events"
+  keystroke "l" using {command down}
+  delay 0.2
+  keystroke "a" using {command down}
+  delay 0.1
+  keystroke "v" using {command down}
 end tell
     `.trim();
 
     return new Promise((resolve, reject) => {
       exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error) => {
         if (error) {
-          console.error(`❌ structPrompt (step1) failed:`, error.message);
+          console.error(`❌ replaceChatInput failed:`, error.message);
           reject(error);
-          return;
+        } else {
+          resolve();
         }
-
-        // Now read clipboard and send with prefix
-        exec(`pbpaste`, (err, stdout) => {
-          if (err || !stdout.trim()) {
-            console.warn('⚠️ No text in clipboard for struct');
-            resolve();
-            return;
-          }
-
-          const userText = stdout.trim();
-          const fullPrompt = `Rewrite the following as a clear, well-structured prompt. Only return the rewritten text, no explanation, no code blocks:\n\n"${userText}"`;
-
-          // Send the restructure request to Kiro chat
-          this.sendToKiroChat(fullPrompt).then(resolve).catch(reject);
-        });
       });
     });
   }

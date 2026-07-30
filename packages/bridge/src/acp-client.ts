@@ -14,6 +14,7 @@ export class AcpClient {
   private notificationHandler: NotificationHandler | null = null;
   private requestId = 0;
   private buffer = '';
+  private _completionCollector: ((type: string, text?: string) => void) | null = null;
   private pendingRequests = new Map<number, {
     resolve: (value: any) => void;
     reject: (reason: any) => void;
@@ -153,6 +154,61 @@ export class AcpClient {
     console.log(`✅ Sending response to Kiro: ${value}`);
   }
 
+  /**
+   * Send a prompt and collect the full response text.
+   * Used for struct/rewrite operations where we need the response back.
+   */
+  async getCompletion(prompt: string): Promise<string> {
+    if (!this.isConnected()) {
+      await this.connect();
+      if (!this.isConnected()) {
+        throw new Error('ACP offline');
+      }
+    }
+
+    // Fresh session
+    const prevSession = this.sessionId;
+    this.sessionId = null;
+    await this.createSession();
+    if (!this.sessionId) {
+      this.sessionId = prevSession;
+      throw new Error('Failed to create session');
+    }
+
+    // Set up chunk collection
+    let responseText = '';
+    let done = false;
+    this._completionCollector = (type: string, text?: string) => {
+      if (type === 'AgentMessageChunk' && text) {
+        responseText += text;
+      } else if (type === 'TurnEnd') {
+        done = true;
+      }
+    };
+
+    // Send prompt
+    await this.sendRequest('session/prompt', {
+      sessionId: this.sessionId,
+      content: [{ type: 'text', text: prompt }],
+    });
+
+    // Wait for TurnEnd (max 30s)
+    const startTime = Date.now();
+    while (!done && Date.now() - startTime < 30000) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // Cleanup
+    this._completionCollector = null;
+    this.sessionId = prevSession;
+
+    if (!responseText.trim()) {
+      throw new Error('No response received');
+    }
+
+    return responseText.trim();
+  }
+
   async toggleAutopilot(): Promise<void> {
     // TODO: Implement via ACP extension or keyboard simulation
     console.log('🤖 Autopilot toggle requested');
@@ -219,6 +275,12 @@ export class AcpClient {
 
   private handleNotification(params: any): void {
     if (!params) return;
+
+    // Feed completion collector if active
+    if (this._completionCollector) {
+      this._completionCollector(params.type, params.text);
+      return; // Don't broadcast during completion collection
+    }
 
     switch (params.type) {
       case 'TurnEnd':
