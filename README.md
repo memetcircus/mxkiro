@@ -1,141 +1,163 @@
-# 👻 Kiro × MX Creative Console
+# MX Kiro — Physical AI Coding Companion
 
-Physical AI coding companion — turn your Logitech MX Creative Console into a Kiro command center.
+A physical AI coding companion that connects **Logitech MX Creative Console** to **Kiro IDE**. Press LCD buttons to send prompts, navigate sessions with the dial, see Kiro's status via ghost animations, and capture screenshots directly into chat.
 
-![Kiro Ghost](assets/sprites/ghost-faces/normal.png)
+![Architecture](https://img.shields.io/badge/Architecture-C%23_%2B_Node.js_%2B_AppleScript-purple)
+![Platform](https://img.shields.io/badge/Platform-macOS-blue)
+![Status](https://img.shields.io/badge/Status-Working_on_Hardware-green)
 
-## ✨ Features
+## What It Does
 
-- **🎛️ Prompt Shortcuts** — 9 LCD buttons with customizable prompts/skills
-- **👻 Ghost Animation** — Kiro's ghost mascot walks across LCD when working
-- **🔥 Session Health** — Fire animation warns when session is too long
-- **✅ Dynamic Responses** — Trust/Cancel/Keep Iterating buttons appear automatically
-- **🔄 Session Navigation** — Dial through 30+ sessions smoothly
-- **🤖 Model Selection** — Roller to switch between Opus/Sonnet/Haiku
-- **⌨️ IDE Shortcuts** — Open Chat, Command Palette, Debug from hardware
-- **📦 Git Actions** — Commit, Push, Pull, Create PR with one press
-- **💡 Context-Aware** — Button set changes based on file type (.tsx → React prompts)
-- **💓 LCD Pulse** — Buttons breathe when Kiro needs your attention
+| Feature | Description |
+|---------|-------------|
+| 🎨 **Ghost Animation** | 9-tile animated Kiro ghost walks across LCD while Kiro is working |
+| 🔥 **Context Health** | Ghost changes appearance based on real context window usage (normal → thinking → worried → fire) |
+| 📸 **Screenshot → Chat** | One button: crosshair → select area → auto-paste into Kiro chat |
+| ⏹️ **Stop/Cancel** | Physical button to cancel Kiro's active generation |
+| 🔄 **Session Navigate** | Dial rotation to switch between Kiro chat sessions |
+| 🆕 **New Session** | Button to open a fresh Kiro chat tab |
+| ✏️ **Inline Chat** | Button to open inline AI editing at cursor position |
+| ⌨️ **Terminal → Chat** | Button to send terminal errors to Kiro for analysis |
+| 📝 **Prompt Buttons** | 9 quick prompts: Explain, Review, Refactor, Fix Bug, etc. |
+| 📐 **Struct Prompt** | Rewrites your messy prompt into a clear, structured one |
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-MX Creative Console ←→ Logi Plugin ←→ Bridge Service ←→ Kiro (ACP/MCP/Hooks)
+MX Creative Console → C# Plugin (Logi SDK) → HTTP → Bridge Service (Node.js) → Kiro IDE (AppleScript)
 ```
 
-| Component | Role |
-|-----------|------|
-| **Logi Plugin** | Talks to MX hardware via Logi Actions SDK |
-| **Bridge Service** | WebSocket + HTTP bridge between plugin and Kiro |
-| **MCP Server** | Lets Kiro agent write to LCD directly |
-| **Hooks** | Captures IDE events (prompt submit, turn end, etc.) |
-| **Power** | Packages everything for one-click Kiro install |
+- **C# Plugin** — Runs inside Logi Plugin Service, renders LCD animations, sends HTTP requests
+- **Bridge Service** — Node.js orchestrator on `localhost:9848`, routes commands to Kiro IDE
+- **Kiro Hooks** — IDE events (`promptSubmit`, `agentStop`) notify Bridge of state changes
+- **AppleScript** — Keyboard simulation for Kiro IDE interaction (Cmd+L, Ctrl+C, Cmd+Shift+4, etc.)
 
-## 📋 Requirements
+## Requirements
 
-- macOS or Windows
-- Logitech MX Creative Console
-- Logi Options+ installed
-- Kiro IDE or CLI
-- Node.js 20+
+- macOS (AppleScript-based, macOS only)
+- [Kiro IDE](https://kiro.dev) installed
+- [Logitech MX Creative Console](https://www.logitech.com/products/keyboards/mx-creative-console.html)
+- [Logi Options+](https://www.logitech.com/software/logi-options-plus.html) installed
+- [.NET 10 SDK](https://dotnet.microsoft.com/download) (`/usr/local/share/dotnet/dotnet`)
+- [Node.js](https://nodejs.org) (v20+)
+- [kiro-cli](https://kiro.dev/cli/) installed and authenticated
+- macOS Accessibility permission for Terminal
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
-# Clone
+# 1. Clone
 git clone https://github.com/memetcircus/mxkiro.git
 cd mxkiro
 
-# Install dependencies
+# 2. Install dependencies
 npm install
 
-# Run setup (installs steering, skills, config)
-npm run setup
+# 3. Build C# plugin
+cd KiroMxConsolePlugin && /usr/local/share/dotnet/dotnet build src/KiroMxConsolePlugin.csproj
 
-# Start bridge service
-npm run dev:bridge
+# 4. Generate sprite animations
+npx tsx scripts/generate-sprites.ts
 
-# In another terminal, start the Logi plugin (watch mode)
-npm run dev:plugin
+# 5. Install Bridge as auto-start service
+./scripts/install-bridge-service.sh
+
+# 6. Restart Logi Plugin Service to load the plugin
+pkill -f LogiPluginService; sleep 4; open -a logioptionsplus
 ```
 
-## 📁 Project Structure
+After setup, assign actions in Logi Options+ under **KiroMxConsole Actions**.
+
+## LCD Button Layout (Recommended)
+
+**Page 1 — Animation Grid (9 buttons):**
+All 9 buttons show the ghost walk animation while Kiro is working. Each button also has a prompt function:
+
+| | Col 1 | Col 2 | Col 3 |
+|---|-------|-------|-------|
+| Row 1 | Criticize | Refactor | Write Tests |
+| Row 2 | Explain | Fix Bug | Optimize |
+| Row 3 | Review | Document | Simplify |
+
+**Page 2 — Controls:**
+- New Session
+- Stop Kiro
+- Screenshot
+- Inline Chat
+- Terminal → Chat
+
+**Dial:** Session Navigate (18 notch threshold)
+**Roller:** Assign Logi native action (Volume, Zoom, etc.)
+
+## Context Health Indicator
+
+The ghost animation changes based on real Kiro context window usage:
+
+| Usage | Ghost | Meaning |
+|-------|-------|---------|
+| 0-50% | Normal 👻 | Plenty of context remaining |
+| 50-75% | Thinking 🤔 | Getting used up |
+| 75-90% | Worried 😰 | Running low |
+| 90%+ | On Fire 🔥 | Consider starting a new session |
+
+## Development
+
+```bash
+# Build C# plugin (auto-reloads in Logi Options+)
+cd KiroMxConsolePlugin && /usr/local/share/dotnet/dotnet build src/KiroMxConsolePlugin.csproj
+
+# Start Bridge manually (instead of LaunchAgent)
+cd packages/bridge && npx tsx src/index.ts
+
+# Regenerate sprites after changing ghost icons
+npx tsx scripts/generate-sprites.ts
+
+# Plugin restart
+pkill -f LogiPluginService; sleep 4; open -a logioptionsplus
+
+# Bridge restart (LaunchAgent)
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.mxkiro.bridge.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mxkiro.bridge.plist
+
+# Check Bridge health
+curl -s http://localhost:9848/health | python3 -m json.tool
+
+# Bridge logs
+tail -f /tmp/mxkiro-bridge.log
+```
+
+## Known Limitations
+
+- **macOS only** — relies on AppleScript and CGEvent for IDE interaction
+- **Clipboard trade-off** — prompts and screenshots use clipboard for paste
+- **Turkish characters** — clipboard copy from Kiro chat corrupts non-ASCII (Kiro/Electron bug)
+- **Multi-session animation** — when multiple sessions are active, animation reflects any working session
+- **Nested scroll areas** — CGEvent scroll targets element under cursor, can't reliably target chat panel only
+
+## Project Structure
 
 ```
 mxkiro/
+├── KiroMxConsolePlugin/     # C# Logi Plugin (LCD animations, buttons, dial)
+│   └── src/
+│       ├── Actions/         # Button commands, dial adjustments
+│       ├── Animation/       # Ghost walk animation manager
+│       ├── Bridge/          # HTTP client to Bridge
+│       └── Helpers/         # Logging utilities
 ├── packages/
-│   ├── shared/           # Types, constants, message definitions
-│   ├── bridge/           # Bridge service (WS + HTTP + ACP + MCP)
-│   ├── logi-plugin/      # Logi Actions SDK plugin
-│   └── kiro-power/       # Kiro Power (hooks, steering, skills)
-├── assets/
-│   └── sprites/          # Generated PNG sprites (520 files)
-├── scripts/
-│   ├── generate-sprites.ts   # Regenerate all sprite assets
-│   └── setup.ts              # One-time setup script
-└── .kiro/
-    └── specs/            # Project requirements, design, tasks
+│   ├── bridge/              # Node.js Bridge service
+│   │   └── src/
+│   │       ├── index.ts          # Main orchestrator
+│   │       ├── http-server.ts    # HTTP endpoints
+│   │       ├── shortcut-executor.ts  # AppleScript automation
+│   │       ├── acp-client.ts     # Kiro CLI ACP connection
+│   │       └── session-monitor.ts    # Session file reader
+│   └── shared/              # Shared types and constants
+├── assets/                  # Ghost icons and sprite sheets
+├── scripts/                 # Sprite generator, install scripts
+└── .kiro/                   # Hooks and steering files
 ```
 
-## 🎮 Hardware Mapping
-
-### Dialpad (Left Device)
-
-| Control | Function |
-|---------|----------|
-| Dial rotate | Navigate between sessions |
-| Dial click | Open/confirm active session |
-| Roller | Switch AI model |
-| Top-left buttons | Undo / Redo |
-| Bottom-left button | Autopilot toggle |
-| Bottom-right button | Stop / Cancel |
-
-### Keypad (Right Device)
-
-| Control | Function |
-|---------|----------|
-| 9 LCD buttons (idle) | Prompt shortcuts |
-| 9 LCD buttons (working) | Ghost walk animation |
-| 9 LCD buttons (waiting) | Dynamic response options |
-| < > buttons | Page navigation |
-
-### Pages
-
-| Page | Content |
-|------|---------|
-| 1 | Prompts (Eleştir, Refactor, Test, ...) |
-| 2 | IDE Controls (Open Chat, Debug, ...) |
-| 3 | Git (Commit, Push, Pull, PR) |
-| 4 | Agent Selection |
-| Auto | Context-aware (React, Python, CSS, Test) |
-
-## 🔧 Configuration
-
-Config file: `~/.kiro-mx/config.json`
-
-Customize button layouts, session health thresholds, animation speeds, and model list.
-
-## 📸 Sprites
-
-Regenerate all sprite assets:
-
-```bash
-npm run generate:sprites
-```
-
-Generates 520 PNGs: ghost walk (30 frames × 9 tiles), fire (20 frames × 9 tiles), face variants, button templates.
-
-## 🆚 vs Codex Micro
-
-| | Codex Micro | Kiro × MX Creative Console |
-|---|---|---|
-| Display | None (static keycaps) | 9 LCD buttons (dynamic) |
-| Status | RGB LEDs | Full animations + expressions |
-| Buttons | Fixed | Context-aware, per-file-type |
-| Sessions | Limited | Dial navigation (30+) |
-| Price | $230 extra | Already own MX Console |
-| Platform | Codex only | Kiro (open ecosystem) |
-
-## 📄 License
+## License
 
 MIT
