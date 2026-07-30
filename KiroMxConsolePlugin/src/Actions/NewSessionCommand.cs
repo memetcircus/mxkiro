@@ -8,7 +8,7 @@ namespace Loupedeck.KiroMxConsolePlugin
         private static readonly HttpClient Http = new HttpClient();
 
         public NewSessionCommand()
-            : base("New Session", "Start a new Kiro chat session", "Kiro Controls", tileIndex: 8) { }
+            : base("New Session", "Start a new Kiro chat session", "Kiro Controls", tileIndex: 0) { }
 
         protected override void RunCommand(String actionParameter)
         {

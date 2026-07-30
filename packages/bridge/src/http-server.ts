@@ -17,7 +17,9 @@ export class HttpServer {
   private sessionResetHandler: (() => void) | null = null;
   private newSessionHandler: (() => void) | null = null;
   private cancelHandler: (() => void) | null = null;
+  private scrollHandler: ((ticks: number) => void) | null = null;
   private snippetHandler: ((text: string) => void) | null = null;
+  private structHandler: (() => void) | null = null;
   private screenshotHandler: (() => void) | null = null;
 
   constructor(port: number) {
@@ -40,8 +42,16 @@ export class HttpServer {
     this.cancelHandler = handler;
   }
 
+  onScroll(handler: (ticks: number) => void): void {
+    this.scrollHandler = handler;
+  }
+
   onSnippet(handler: (text: string) => void): void {
     this.snippetHandler = handler;
+  }
+
+  onStruct(handler: () => void): void {
+    this.structHandler = handler;
   }
 
   onScreenshot(handler: () => void): void {
@@ -138,6 +148,15 @@ export class HttpServer {
         return;
       }
 
+      // GET /scroll?ticks=N — vertical scroll in Kiro IDE
+      if (url.pathname === '/scroll' && req.method === 'GET') {
+        const ticks = parseInt(url.searchParams.get('ticks') || '0');
+        this.scrollHandler?.(ticks);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, ticks }));
+        return;
+      }
+
       // GET /session/reset — reset message counter (new session started)
       if (url.pathname === '/session/reset' && req.method === 'GET') {
         this.messageCount = 0;
@@ -187,6 +206,15 @@ export class HttpServer {
         this.snippetHandler?.(text);
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true, snippet: text }));
+        return;
+      }
+
+      // GET /struct — read chat input, restructure it via Kiro
+      if (url.pathname === '/struct' && req.method === 'GET') {
+        console.log(`📐 Struct prompt requested`);
+        this.structHandler?.();
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
         return;
       }
 

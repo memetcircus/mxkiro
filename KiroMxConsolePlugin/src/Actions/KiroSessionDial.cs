@@ -15,12 +15,13 @@ namespace Loupedeck.KiroMxConsolePlugin
         private Timer _resetTimer;
         private readonly Object _lock = new Object();
 
-        // Require 18 notches in the same direction within 4 seconds to fire
-        private const Int32 Threshold = 18;
-        private const Int32 ResetMs = 4000;
+        // Require this many notches in same direction to fire. 30 ≈ a full deliberate turn.
+        private const Int32 Threshold = 30;
+        // Reset accumulator if no tick received within this window.
+        private const Int32 ResetMs = 3000;
 
         public KiroSessionDial()
-            : base("Session Navigate", "Navigate between Kiro session tabs", "Kiro Controls", hasReset: true)
+            : base("Session Navigate", "Navigate between Kiro session tabs", "Kiro Controls", hasReset: false)
         {
             this._bridge = new BridgeClient();
         }

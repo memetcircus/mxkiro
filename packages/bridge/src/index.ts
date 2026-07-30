@@ -315,6 +315,10 @@ httpServer.onSnippet((text) => {
   shortcuts.appendToChat(text);
 });
 
+httpServer.onStruct(() => {
+  shortcuts.structPrompt();
+});
+
 httpServer.onCancel(() => {
   suppressWorkingUntil = Date.now() + CANCEL_WORKING_SUPPRESSION_MS;
   bridgeState = KiroState.IDLE;
@@ -356,8 +360,6 @@ httpServer.onModelSwitch((ticks) => {
   console.log(`🤖 Model → ${model.name}`);
 });
 
-// Scroll — removed; users assign Logi's native "Mouse Scroll" to the roller instead
-
 acpClient.onNotification((notification) => {
   console.log('📡 ACP →', notification.type);
   wsServer.broadcast(notification);
@@ -368,6 +370,10 @@ acpClient.onNotification((notification) => {
 await wsServer.start();
 await httpServer.start();
 await acpClient.connect();
+
+// Disable macOS screenshot floating thumbnail (required for instant screen capture)
+import { exec } from 'node:child_process';
+exec('defaults write com.apple.screencapture show-thumbnail -bool false');
 
 console.log('');
 console.log(`✅ MX Kiro Bridge ready!`);

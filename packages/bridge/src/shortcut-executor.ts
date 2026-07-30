@@ -112,6 +112,60 @@ end tell
   }
 
   /**
+   * Read the current chat input text, prepend a restructure instruction, and send it.
+   * This asks Kiro to rewrite the user's prompt in a clearer, structured way.
+   */
+  async structPrompt(): Promise<void> {
+    if (platform() !== 'darwin') {
+      console.warn(`⚠️ structPrompt not implemented for ${platform()}`);
+      return;
+    }
+
+    // 1. Activate Kiro, focus chat input
+    // 2. Select all text in input (Cmd+A)
+    // 3. Cut to clipboard (Cmd+X) — this clears the input
+    // 4. Read clipboard, prepend restructure instruction
+    // 5. Paste the full prompt back and send (Enter)
+    const script = `
+tell application "Kiro" to activate
+delay 0.2
+tell application "System Events"
+  keystroke "l" using {command down}
+  delay 0.3
+  keystroke "a" using {command down}
+  delay 0.1
+  keystroke "x" using {command down}
+  delay 0.2
+end tell
+    `.trim();
+
+    return new Promise((resolve, reject) => {
+      exec(`osascript -e '${script.replace(/'/g, "'\\''")}'`, (error) => {
+        if (error) {
+          console.error(`❌ structPrompt (step1) failed:`, error.message);
+          reject(error);
+          return;
+        }
+
+        // Now read clipboard and send with prefix
+        exec(`pbpaste`, (err, stdout) => {
+          if (err || !stdout.trim()) {
+            console.warn('⚠️ No text in clipboard for struct');
+            resolve();
+            return;
+          }
+
+          const userText = stdout.trim();
+          const fullPrompt = `Rewrite the following as a clear, well-structured prompt. Only return the rewritten text, no explanation, no code blocks:\n\n"${userText}"`;
+
+          // Send the restructure request to Kiro chat
+          this.sendToKiroChat(fullPrompt).then(resolve).catch(reject);
+        });
+      });
+    });
+  }
+
+  /**
    * Cancel the active Kiro chat request using Kiro's chat cancel shortcut.
    * Kiro must have chat focus for Ctrl+C to resolve to workbench.action.chat.cancel.
    */
@@ -171,6 +225,78 @@ end tell
           reject(error);
         } else {
           console.log(`🔄 Session tab: ${direction}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * Send vertical scroll to Kiro IDE chat panel.
+   * Moves cursor to chat area, clicks to acquire focus, scrolls, then restores cursor.
+   */
+  async scrollKiro(ticks: number): Promise<void> {
+    if (platform() !== 'darwin') {
+      return;
+    }
+
+    const scrollLines = -ticks * 12;
+
+    const script = `
+ObjC.import('CoreGraphics');
+
+// Save current mouse position
+var currentEvent = $.CGEventCreate(null);
+var currentPos = $.CGEventGetLocation(currentEvent);
+var savedX = currentPos.x;
+var savedY = currentPos.y;
+
+// Get Kiro window bounds via System Events
+var kiroApp = Application('System Events').processes.byName('Kiro');
+var win = kiroApp.windows[0];
+var pos = win.position();
+var sz = win.size();
+var winX = pos[0];
+var winY = pos[1];
+var winW = sz[0];
+var winH = sz[1];
+
+// Target: chat panel area (right 75%, height 40%)
+var targetX = winX + winW * 0.75;
+var targetY = winY + winH * 0.4;
+var targetPoint = $.CGPointMake(targetX, targetY);
+
+// Move mouse to chat area
+var moveEvent = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, targetPoint, 0);
+$.CGEventPost($.kCGHIDEventTap, moveEvent);
+
+delay(0.02);
+
+// Click to acquire focus on chat panel
+var mouseDown = $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseDown, targetPoint, 0);
+var mouseUp = $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseUp, targetPoint, 0);
+$.CGEventPost($.kCGHIDEventTap, mouseDown);
+delay(0.01);
+$.CGEventPost($.kCGHIDEventTap, mouseUp);
+
+delay(0.02);
+
+// Scroll
+var scrollEvent = $.CGEventCreateScrollWheelEvent(null, 0, 1, ${scrollLines});
+$.CGEventPost($.kCGHIDEventTap, scrollEvent);
+
+// Restore mouse position
+delay(0.02);
+var restorePoint = $.CGPointMake(savedX, savedY);
+var restoreEvent = $.CGEventCreateMouseEvent(null, $.kCGEventMouseMoved, restorePoint, 0);
+$.CGEventPost($.kCGHIDEventTap, restoreEvent);
+    `.trim();
+
+    return new Promise((resolve, reject) => {
+      exec(`osascript -l JavaScript -e '${script.replace(/'/g, "'\\''")}'`, (error) => {
+        if (error) {
+          reject(error);
+        } else {
           resolve();
         }
       });
