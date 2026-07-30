@@ -21,6 +21,8 @@ export class HttpServer {
   private snippetHandler: ((text: string) => void) | null = null;
   private structHandler: (() => void) | null = null;
   private screenshotHandler: (() => void) | null = null;
+  private inlineChatHandler: (() => void) | null = null;
+  private terminalToChatHandler: (() => void) | null = null;
 
   constructor(port: number) {
     this.port = port;
@@ -56,6 +58,14 @@ export class HttpServer {
 
   onScreenshot(handler: () => void): void {
     this.screenshotHandler = handler;
+  }
+
+  onInlineChat(handler: () => void): void {
+    this.inlineChatHandler = handler;
+  }
+
+  onTerminalToChat(handler: () => void): void {
+    this.terminalToChatHandler = handler;
   }
 
   setState(state: string): void {
@@ -194,6 +204,24 @@ export class HttpServer {
       if (url.pathname === '/screenshot' && req.method === 'GET') {
         this.screenshotHandler?.();
         console.log('📸 Screenshot requested');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      // GET /inline-chat — open inline chat in editor
+      if (url.pathname === '/inline-chat' && req.method === 'GET') {
+        this.inlineChatHandler?.();
+        console.log('✏️ Inline chat requested');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      // GET /terminal-to-chat — send terminal output to Kiro chat
+      if (url.pathname === '/terminal-to-chat' && req.method === 'GET') {
+        this.terminalToChatHandler?.();
+        console.log('⌨️ Terminal to chat requested');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
         return;

@@ -372,6 +372,18 @@ httpServer.onScreenshot(() => {
   });
 });
 
+httpServer.onInlineChat(() => {
+  void shortcuts.execute('cmd+i').catch((error: Error) => {
+    console.error('❌ Inline chat failed:', error.message);
+  });
+});
+
+httpServer.onTerminalToChat(() => {
+  void shortcuts.execute('cmd+shift+r').catch((error: Error) => {
+    console.error('❌ Terminal to chat failed:', error.message);
+  });
+});
+
 // Session navigation — direct, no threshold
 httpServer.onSessionNavigate((ticks) => {
   const direction = ticks > 0 ? 'right' : 'left';
