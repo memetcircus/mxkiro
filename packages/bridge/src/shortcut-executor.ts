@@ -340,8 +340,6 @@ $.CGEventPost($.kCGHIDEventTap, restoreEvent);
     }
 
     // 1. Copy selected text from whatever app is active (Cmd+C)
-    // 2. Read clipboard
-    // 3. Send to Kiro chat
     const script = `
 tell application "System Events"
   keystroke "c" using {command down}
@@ -349,7 +347,6 @@ end tell
 delay 0.3
     `.trim();
 
-    // Copy selected text
     await new Promise<void>((resolve, reject) => {
       exec(`osascript -e '${script}'`, (error) => {
         if (error) reject(error);
@@ -357,7 +354,7 @@ delay 0.3
       });
     });
 
-    // Read clipboard
+    // 2. Read clipboard
     const text = await new Promise<string>((resolve, reject) => {
       exec('pbpaste', { encoding: 'buffer' }, (error, stdout) => {
         if (error) reject(error);
@@ -370,7 +367,7 @@ delay 0.3
       return;
     }
 
-    // Send to Kiro chat
+    // 3. Send to Kiro chat as-is
     await this.sendToKiroChat(text);
     console.log(`❓ Ask Kiro: sent "${text.substring(0, 50)}..."`);
   }
