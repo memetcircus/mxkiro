@@ -390,6 +390,12 @@ httpServer.onScreenRecord(() => {
   });
 });
 
+httpServer.onAskKiro(() => {
+  void shortcuts.askKiro().catch((error: Error) => {
+    console.error('❌ Ask Kiro failed:', error.message);
+  });
+});
+
 // Session navigation — direct, no threshold
 httpServer.onSessionNavigate((ticks) => {
   const direction = ticks > 0 ? 'right' : 'left';

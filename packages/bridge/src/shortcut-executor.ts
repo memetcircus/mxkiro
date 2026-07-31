@@ -332,6 +332,52 @@ $.CGEventPost($.kCGHIDEventTap, restoreEvent);
   }
 
   /**
+   * Copy currently selected text from any app and send it to Kiro chat.
+   * Like ChatGPT's "Ask ChatGPT" — select text anywhere, press button, Kiro answers.
+   */
+  async askKiro(): Promise<void> {
+    if (platform() !== 'darwin') {
+      console.warn(`⚠️ askKiro not implemented for ${platform()}`);
+      return;
+    }
+
+    // 1. Copy selected text from whatever app is active (Cmd+C)
+    // 2. Read clipboard
+    // 3. Send to Kiro chat
+    const script = `
+tell application "System Events"
+  keystroke "c" using {command down}
+end tell
+delay 0.3
+    `.trim();
+
+    // Copy selected text
+    await new Promise<void>((resolve, reject) => {
+      exec(`osascript -e '${script}'`, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+
+    // Read clipboard
+    const text = await new Promise<string>((resolve, reject) => {
+      exec('pbpaste', { encoding: 'buffer' }, (error, stdout) => {
+        if (error) reject(error);
+        else resolve((stdout as unknown as Buffer).toString('utf8').trim());
+      });
+    });
+
+    if (!text) {
+      console.warn('❓ Ask Kiro: no text selected');
+      return;
+    }
+
+    // Send to Kiro chat
+    await this.sendToKiroChat(text);
+    console.log(`❓ Ask Kiro: sent "${text.substring(0, 50)}..."`);
+  }
+
+  /**
    * Record a screen region for 5 seconds by taking periodic screenshots.
    * 1. Shows crosshair for area selection
    * 2. Takes 5 screenshots of that area (1 per second)
