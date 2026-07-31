@@ -28,24 +28,22 @@ export class ShortcutExecutor {
       return;
     }
 
-    // Escape special characters for AppleScript
-    const escaped = prompt
-      .replace(/\\/g, '\\\\')
-      .replace(/"/g, '\\"')
-      .replace(/\n/g, '\\n');
+    // Write prompt to clipboard via Node.js spawn (proper UTF-8 handling)
+    await new Promise<void>((resolve, reject) => {
+      const pbcopy = spawn('pbcopy', [], { stdio: ['pipe', 'ignore', 'ignore'] });
+      pbcopy.stdin.write(prompt, 'utf8');
+      pbcopy.stdin.end();
+      pbcopy.on('close', () => resolve());
+      pbcopy.on('error', reject);
+    });
 
-    // 1. Activate Kiro
-    // 2. Focus existing chat input (Cmd+L) — does NOT open new session
-    // 3. Small delay for UI to settle
-    // 4. Set clipboard to prompt text and paste (more reliable than keystroke for long text)
-    // 5. Press Enter to send
+    // Activate Kiro, focus chat, paste, send
     const script = `
 tell application "Kiro" to activate
 delay 0.3
 tell application "System Events"
   keystroke "l" using {command down}
   delay 0.5
-  set the clipboard to "${escaped}"
   keystroke "v" using {command down}
   delay 0.2
   keystroke return
