@@ -18,7 +18,7 @@ A physical AI coding companion that connects **Logitech MX Creative Console** to
 | 🆕 **New Session** | Button to open a fresh Kiro chat tab |
 | ✏️ **Inline Chat** | Button to open inline AI editing at cursor position |
 | ⌨️ **Terminal → Chat** | Button to send terminal errors to Kiro for analysis |
-| 📝 **Prompt Buttons** | 9 quick prompts: Explain, Review, Refactor, Fix Bug, etc. |
+| 📝 **Prompt Buttons** | 9 quick prompts that work on the active file: Explain, Criticize, Document, Fix Bug, Optimize, Refactor, Review, Simplify, Write Tests. Press any button and Kiro analyzes the currently open file. |
 | 📐 **Struct Prompt** | Rewrites your messy prompt into a clear, structured one |
 
 ## Architecture
@@ -70,21 +70,28 @@ After setup, assign actions in Logi Options+ under **KiroMxConsole Actions**.
 
 ## LCD Button Layout (Recommended)
 
-**Page 1 — Animation Grid (9 buttons):**
-All 9 buttons show the ghost walk animation while Kiro is working. Each button also has a prompt function:
+**Page 1 — Prompt Commands (9 buttons):**
+
+Each button sends a concise prompt to Kiro about the currently active file in the editor. Kiro automatically uses the open file as context — no need to specify which file.
 
 | | Col 1 | Col 2 | Col 3 |
 |---|-------|-------|-------|
-| Row 1 | Criticize | Refactor | Write Tests |
-| Row 2 | Explain | Fix Bug | Optimize |
-| Row 3 | Review | Document | Simplify |
+| Row 1 | Criticize | Document | Explain |
+| Row 2 | Fix Bug | Optimize | Refactor |
+| Row 3 | Review | Simplify | Write Tests |
 
-**Page 2 — Controls:**
+All 9 buttons display the ghost walk animation while Kiro is working.
+
+**Page 2 — Controls & Snippets:**
+- Screen Capture (screenshot → chat)
+- Screen Record (5 frames → chat)
+- Ask Kiro (selected text → chat)
 - New Session
 - Stop Kiro
-- Screenshot
 - Inline Chat
 - Terminal → Chat
+- Struct Prompt
+- Snippet modifiers (Be Honest, Don't Code Yet, Keep Short, No Tests, etc.)
 
 **Dial:** Session Navigate (18 notch threshold)
 **Roller:** Assign Logi native action (Volume, Zoom, etc.)
