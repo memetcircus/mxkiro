@@ -336,7 +336,15 @@ $.CGEventPost($.kCGHIDEventTap, restoreEvent);
       return;
     }
 
-    // 1. Copy selected text from whatever app is active (Cmd+C)
+    // 1. Clear clipboard first, then copy — if clipboard stays empty, nothing was selected
+    await new Promise<void>((resolve) => {
+      const pbcopy = spawn('pbcopy', [], { stdio: ['pipe', 'ignore', 'ignore'] });
+      pbcopy.stdin.write('', 'utf8');
+      pbcopy.stdin.end();
+      pbcopy.on('close', () => resolve());
+    });
+
+    // 2. Copy selected text from whatever app is active (Cmd+C)
     const script = `
 tell application "System Events"
   keystroke "c" using {command down}
@@ -351,7 +359,7 @@ delay 0.3
       });
     });
 
-    // 2. Read clipboard
+    // 3. Read clipboard
     const text = await new Promise<string>((resolve, reject) => {
       exec('pbpaste', { encoding: 'buffer' }, (error, stdout) => {
         if (error) reject(error);
@@ -364,7 +372,7 @@ delay 0.3
       return;
     }
 
-    // 3. Send to Kiro chat as-is
+    // 4. Send to Kiro chat as-is
     await this.sendToKiroChat(text);
     console.log(`❓ Ask Kiro: sent "${text.substring(0, 50)}..."`);
   }
