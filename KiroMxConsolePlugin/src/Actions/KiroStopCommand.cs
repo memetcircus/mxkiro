@@ -3,12 +3,12 @@ namespace Loupedeck.KiroMxConsolePlugin
     using System;
     using System.Net.Http;
 
-    public class KiroStopCommand : PluginDynamicCommand
+    public class KiroStopCommand : AnimatedCommand
     {
         private static readonly HttpClient Http = new HttpClient();
 
         public KiroStopCommand()
-            : base("Stop Kiro", "Cancel current Kiro operation", "Kiro Controls") { }
+            : base("Stop Kiro", "Cancel current Kiro operation", "Kiro Controls", tileIndex: 5) { }
 
         protected override async void RunCommand(String actionParameter)
         {
