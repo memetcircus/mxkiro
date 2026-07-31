@@ -384,6 +384,12 @@ httpServer.onTerminalToChat(() => {
   });
 });
 
+httpServer.onScreenRecord(() => {
+  void shortcuts.screenRecordToChat().catch((error: Error) => {
+    console.error('❌ Screen record failed:', error.message);
+  });
+});
+
 // Session navigation — direct, no threshold
 httpServer.onSessionNavigate((ticks) => {
   const direction = ticks > 0 ? 'right' : 'left';

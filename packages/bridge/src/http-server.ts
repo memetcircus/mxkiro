@@ -23,6 +23,7 @@ export class HttpServer {
   private screenshotHandler: (() => void) | null = null;
   private inlineChatHandler: (() => void) | null = null;
   private terminalToChatHandler: (() => void) | null = null;
+  private screenRecordHandler: (() => void) | null = null;
 
   constructor(port: number) {
     this.port = port;
@@ -66,6 +67,10 @@ export class HttpServer {
 
   onTerminalToChat(handler: () => void): void {
     this.terminalToChatHandler = handler;
+  }
+
+  onScreenRecord(handler: () => void): void {
+    this.screenRecordHandler = handler;
   }
 
   setState(state: string): void {
@@ -222,6 +227,15 @@ export class HttpServer {
       if (url.pathname === '/terminal-to-chat' && req.method === 'GET') {
         this.terminalToChatHandler?.();
         console.log('⌨️ Terminal to chat requested');
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+        return;
+      }
+
+      // GET /screen-record — record screen and send frames to Kiro
+      if (url.pathname === '/screen-record' && req.method === 'GET') {
+        this.screenRecordHandler?.();
+        console.log('🎬 Screen record requested');
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
         return;

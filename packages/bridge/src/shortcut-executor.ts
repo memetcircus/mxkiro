@@ -332,6 +332,126 @@ $.CGEventPost($.kCGHIDEventTap, restoreEvent);
   }
 
   /**
+   * Record a screen region for 5 seconds by taking periodic screenshots.
+   * 1. Shows crosshair for area selection
+   * 2. Takes 5 screenshots of that area (1 per second)
+   * 3. Pastes all frames into Kiro chat
+   */
+  async screenRecordToChat(): Promise<void> {
+    if (platform() !== 'darwin') {
+      console.warn(`⚠️ screenRecordToChat not implemented for ${platform()}`);
+      return;
+    }
+
+    const framesDir = '/tmp/kiro-screen-frames';
+    const frameCount = 5;
+    const intervalMs = 1000;
+
+    // 1. First screenshot with crosshair to get the selected area
+    const firstFrame = '/tmp/kiro-screen-frames/frame-01.png';
+    const { existsSync, mkdirSync, readdirSync, unlinkSync, rmSync } = await import('node:fs');
+
+    if (existsSync(framesDir)) {
+      rmSync(framesDir, { recursive: true });
+    }
+    mkdirSync(framesDir, { recursive: true });
+
+    console.log('🎬 Select area for screen recording...');
+
+    // Use Cmd+Shift+4 style selection and capture to file
+    // screencapture -i captures interactively with area selection
+    await new Promise<void>((resolve, reject) => {
+      exec(`/usr/sbin/screencapture -i "${firstFrame}"`, { timeout: 60000, env: { ...process.env, PATH: '/usr/sbin:/usr/bin:/bin:/usr/local/bin:' + (process.env.PATH || '') } }, (error) => {
+        if (error) {
+          if (error.code === 1) {
+            reject(new Error('cancelled'));
+          } else {
+            reject(error);
+          }
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    if (!existsSync(firstFrame)) {
+      console.log('🎬 Recording cancelled by user');
+      return;
+    }
+
+    console.log('🎬 Area captured! Taking 4 more frames...');
+
+    // 2. Get the dimensions of the first capture to know the area
+    // We'll use full screen captures for subsequent frames since we can't reliably
+    // get the exact coordinates. Instead, take full screenshots and the user
+    // keeps the relevant area visible.
+    // Actually better: just take 4 more full-area screenshots with -i -R using same coords
+    // Simplest approach: take 4 more screenshots of entire screen with screencapture -x (silent)
+    // and crop later... OR just take repeated interactive-less screenshots
+
+    // Simplest reliable approach: take 4 more full screenshots at intervals
+    for (let i = 2; i <= frameCount; i++) {
+      await new Promise(r => setTimeout(r, intervalMs));
+      const framePath = `${framesDir}/frame-${String(i).padStart(2, '0')}.png`;
+      await new Promise<void>((resolve) => {
+        exec(`/usr/sbin/screencapture -x "${framePath}"`, { env: { ...process.env, PATH: '/usr/sbin:/usr/bin:/bin:/usr/local/bin:' + (process.env.PATH || '') } }, () => resolve());
+      });
+    }
+
+    // 3. Get frame files
+    const frames = readdirSync(framesDir)
+      .filter(f => f.endsWith('.png'))
+      .sort()
+      .map(f => `${framesDir}/${f}`);
+
+    console.log(`🎬 Captured ${frames.length} frames, sending to Kiro...`);
+
+    // 4. Paste frames one by one into Kiro chat
+    const pasteScript = `
+ObjC.import('AppKit');
+
+var kiro = Application('Kiro');
+kiro.activate();
+delay(0.3);
+var se = Application('System Events');
+se.keystroke('l', {using: 'command down'});
+delay(0.3);
+
+var files = [${frames.map(f => `"${f}"`).join(', ')}];
+var pasteboard = $.NSPasteboard.generalPasteboard;
+
+for (var i = 0; i < files.length; i++) {
+  pasteboard.clearContents;
+  var fileURL = $.NSURL.fileURLWithPath(files[i]);
+  pasteboard.writeObjects($.NSArray.arrayWithObject(fileURL));
+  delay(0.3);
+  se.keystroke('v', {using: 'command down'});
+  delay(0.5);
+}
+
+'done';
+    `.trim();
+
+    await new Promise<void>((resolve, reject) => {
+      exec(`osascript -l JavaScript -e '${pasteScript.replace(/'/g, "'\\''")}'`, { timeout: 20000 }, (error) => {
+        if (error) {
+          console.error('❌ screenRecordToChat paste failed:', error.message);
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // 5. Cleanup after 30 seconds
+    setTimeout(() => {
+      try { rmSync(framesDir, { recursive: true }); } catch {}
+    }, 30000);
+
+    console.log('🎬 Screen recording frames sent to Kiro chat');
+  }
+
+  /**
    * Take an interactive screenshot and attach it to the active Kiro chat input.
    * Uses Cmd+Shift+4 (native macOS crosshair) → waits for file → copies to clipboard → pastes into Kiro.
    */

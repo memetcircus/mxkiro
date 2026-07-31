@@ -18,7 +18,7 @@
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
-        <string>/Users/akif/.nvm/versions/node/v24.14.0/bin:/Users/akif/.local/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <string>/Users/akif/.nvm/versions/node/v24.14.0/bin:/Users/akif/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/bin:/opt/homebrew/bin</string>
         <key>HOME</key>
         <string>/Users/akif</string>
     </dict>
