@@ -126,6 +126,15 @@ curl -s http://localhost:9848/health | python3 -m json.tool
 tail -f /tmp/mxkiro-bridge.log
 ```
 
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "node" in macOS Privacy settings | This is the MX Kiro Bridge service. It needs Accessibility and Screen Recording permissions to send keystrokes and capture screenshots. |
+| Bridge not responding | Check: `curl -s http://localhost:9848/health`. If offline: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mxkiro.bridge.plist` |
+| Plugin not loading | Restart Logi: `pkill -f LogiPluginService; sleep 4; open -a logioptionsplus` |
+| Turkish characters garbled | Known Kiro/Electron clipboard bug when copying FROM Kiro chat. Works fine from other apps. |
+
 ## Known Limitations
 
 - **macOS only** — relies on AppleScript and CGEvent for IDE interaction

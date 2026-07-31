@@ -12,7 +12,7 @@ name: KiroMxConsole
 displayName: KiroMxConsole
 
 # Short description of the plugin.
-description: Add a short description of the plugin here.
+description: Physical AI coding companion — send prompts, screenshots, and screen recordings to Kiro IDE with animated ghost status display.
 
 # Name of the plugin library file.
 pluginFileName: KiroMxConsolePlugin.dll
@@ -67,9 +67,7 @@ license: MIT
 licenseUrl: https://opensource.org/licenses/MIT
 
 # URL of the support page where the users can send improvement suggestions and report bugs.
-# The URL is shown in Loupedeck Marketplace. The page can be for example a GitHub issues page.
-# NOTE: This setting is recommended when publishing the plugin in Loupedeck Marketplace.
-#supportPageUrl: https://github.com/myusername/myplugin/issues
+supportPageUrl: https://github.com/memetcircus/mxkiro/issues
 
-# URL of the plugin homepage. The URL is shown in Loupedeck Marketplace.
-#homePageUrl: https://github.com/myusername/myplugin
+# URL of the plugin homepage.
+homePageUrl: https://github.com/memetcircus/mxkiro
