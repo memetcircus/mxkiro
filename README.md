@@ -133,13 +133,13 @@ tail -f /tmp/mxkiro-bridge.log
 | "node" in macOS Privacy settings | This is the MX Kiro Bridge service. It needs Accessibility and Screen Recording permissions to send keystrokes and capture screenshots. |
 | Bridge not responding | Check: `curl -s http://localhost:9848/health`. If offline: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.mxkiro.bridge.plist` |
 | Plugin not loading | Restart Logi: `pkill -f LogiPluginService; sleep 4; open -a logioptionsplus` |
-| Turkish characters garbled | Known Kiro/Electron clipboard bug when copying FROM Kiro chat. Works fine from other apps. |
+| Non-ASCII characters garbled | Known Kiro/Electron clipboard bug when copying FROM Kiro chat. Non-English characters (ö, ü, ñ, é, etc.) get corrupted. Works fine when copying from other apps (browser, Notes, VS Code). |
 
 ## Known Limitations
 
 - **macOS only** — relies on AppleScript and CGEvent for IDE interaction
 - **Clipboard trade-off** — prompts and screenshots use clipboard for paste
-- **Turkish characters** — clipboard copy from Kiro chat corrupts non-ASCII (Kiro/Electron bug)
+- **Non-ASCII clipboard** — clipboard copy from Kiro chat corrupts non-English characters (Kiro/Electron bug)
 - **Multi-session animation** — when multiple sessions are active, animation reflects any working session
 - **Nested scroll areas** — CGEvent scroll targets element under cursor, can't reliably target chat panel only
 
