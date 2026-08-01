@@ -1,5 +1,9 @@
 # MX Kiro — Physical AI Coding Companion
 
+<p align="center">
+  <img src="assets/demo.gif" alt="Ghost Animation on MX Creative Console" width="480">
+</p>
+
 A physical AI coding companion that connects **Logitech MX Creative Console** to **Kiro IDE**. Press LCD buttons to send prompts, navigate sessions with the dial, see Kiro's status via ghost animations, and capture screenshots directly into chat.
 
 ![Architecture](https://img.shields.io/badge/Architecture-C%23_%2B_Node.js_%2B_AppleScript-purple)
