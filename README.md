@@ -70,28 +70,33 @@ After setup, assign actions in Logi Options+ under **KiroMxConsole Actions**.
 
 ## LCD Button Layout (Recommended)
 
-**Page 1 — Prompt Commands (9 buttons):**
+**Page 1 — Snippets & Controls (9 buttons, animated):**
 
-Each button sends a concise prompt to Kiro about the currently active file in the editor. Kiro automatically uses the open file as context — no need to specify which file.
+Buttons must be assigned in this exact order for ghost animation tiles to align correctly:
 
 | | Col 1 | Col 2 | Col 3 |
 |---|-------|-------|-------|
-| Row 1 | Criticize | Document | Explain |
-| Row 2 | Fix Bug | Optimize | Refactor |
-| Row 3 | Review | Simplify | Write Tests |
+| Row 1 | Screen Capture (tile 0) | Be Honest (tile 1) | Don't Code Yet (tile 2) |
+| Row 2 | Show Options (tile 3) | Explain Why (tile 4) | Stop (tile 5) |
+| Row 3 | Keep Short (tile 6) | No Tests (tile 7) | Yes (tile 8) |
 
-All 9 buttons display the ghost walk animation while Kiro is working.
-
-**Page 2 — Controls & Snippets:**
-- Screen Capture (screenshot → chat)
-- Screen Record (5 frames → chat)
-- Ask Kiro (selected text → chat)
+**Page 2 — Utility Controls (no animation):**
 - New Session
-- Stop Kiro
+- Struct Prompt
 - Inline Chat
 - Terminal → Chat
-- Struct Prompt
-- Snippet modifiers (Be Honest, Don't Code Yet, Keep Short, No Tests, etc.)
+- Screen Record
+- Ask Kiro
+
+**Page 3 — Prompt Commands (9 buttons, animated):**
+
+Each button sends a prompt about the active file. Must be in this order for animation:
+
+| | Col 1 | Col 2 | Col 3 |
+|---|-------|-------|-------|
+| Row 1 | Criticize (tile 0) | Refactor (tile 1) | Write Tests (tile 2) |
+| Row 2 | Explain (tile 3) | Fix Bug (tile 4) | Optimize (tile 5) |
+| Row 3 | Review (tile 6) | Document (tile 7) | Simplify (tile 8) |
 
 **Dial:** Session Navigate (18 notch threshold)
 **Roller:** Assign Logi native action (Volume, Zoom, etc.)
