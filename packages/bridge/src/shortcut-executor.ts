@@ -378,10 +378,10 @@ delay 0.3
   }
 
   /**
-   * Record a screen region for 5 seconds by taking periodic screenshots.
-   * 1. Shows crosshair for area selection
-   * 2. Takes 5 screenshots of that area (1 per second)
-   * 3. Pastes all frames into Kiro chat
+   * Record the screen for 5 seconds by taking periodic screenshots.
+   * Takes 5 full-screen screenshots at 1-second intervals, resizes them to max 1280px width,
+   * and converts to JPEG to stay well under Kiro's 10MB image size limit.
+   * Pastes all frames into Kiro chat.
    */
   async screenRecordToChat(): Promise<void> {
     if (platform() !== 'darwin') {
@@ -390,78 +390,89 @@ delay 0.3
     }
 
     const framesDir = '/tmp/kiro-screen-frames';
-    const frameCount = 5;
-    const intervalMs = 1000;
+    // Show a dialog with mode selection
+    // Quick: 5 frames, 2s interval (~8s total)
+    // Long: 10 frames, 2s interval (~18s total)
+    const modeResult = await new Promise<string>((resolve, reject) => {
+      exec(`osascript -e 'display dialog "Screen Recording" & return & return & "Quick: 5 frames (~2s)" & return & "Long: 10 frames (~7s)" buttons {"Cancel", "Long", "Quick"} default button "Quick" with title "Kiro Screen Record" with icon caution'`, { timeout: 30000 }, (error, stdout) => {
+        if (error) {
+          reject(new Error('cancelled'));
+        } else {
+          resolve(stdout.trim());
+        }
+      });
+    });
 
-    // 1. First screenshot with crosshair to get the selected area
-    const firstFrame = '/tmp/kiro-screen-frames/frame-01.png';
-    const { existsSync, mkdirSync, readdirSync, unlinkSync, rmSync } = await import('node:fs');
+    const isLong = modeResult.includes('Long');
+    const frameCount = isLong ? 10 : 5;
+    const intervalMs = isLong ? 800 : 500;
+    const maxWidth = 1280;
+
+    const { existsSync, mkdirSync, readdirSync, rmSync } = await import('node:fs');
 
     if (existsSync(framesDir)) {
       rmSync(framesDir, { recursive: true });
     }
     mkdirSync(framesDir, { recursive: true });
 
-    console.log('🎬 Select area for screen recording...');
+    console.log(`🎬 User selected ${isLong ? 'Long' : 'Quick'} mode (${frameCount} frames, ${intervalMs}ms interval)...`);
 
-    // Use Cmd+Shift+4 style selection and capture to file
-    // screencapture -i captures interactively with area selection
-    await new Promise<void>((resolve, reject) => {
-      exec(`/usr/sbin/screencapture -i "${firstFrame}"`, { timeout: 60000, env: { ...process.env, PATH: '/usr/sbin:/usr/bin:/bin:/usr/local/bin:' + (process.env.PATH || '') } }, (error) => {
-        if (error) {
-          if (error.code === 1) {
-            reject(new Error('cancelled'));
-          } else {
-            reject(error);
-          }
-        } else {
-          resolve();
-        }
-      });
-    });
+    // Notify recording start
+    exec(`osascript -e 'display notification "Recording ${frameCount} frames..." with title "🎬 Started"'`);
 
-    if (!existsSync(firstFrame)) {
-      console.log('🎬 Recording cancelled by user');
-      return;
-    }
+    // Phase 1: Capture all frames as fast as possible (PNG only)
+    for (let i = 1; i <= frameCount; i++) {
+      if (i > 1) {
+        await new Promise(r => setTimeout(r, intervalMs));
+      }
 
-    console.log('🎬 Area captured! Taking 4 more frames...');
+      const framePng = `${framesDir}/frame-${String(i).padStart(2, '0')}.png`;
 
-    // 2. Get the dimensions of the first capture to know the area
-    // We'll use full screen captures for subsequent frames since we can't reliably
-    // get the exact coordinates. Instead, take full screenshots and the user
-    // keeps the relevant area visible.
-    // Actually better: just take 4 more full-area screenshots with -i -R using same coords
-    // Simplest approach: take 4 more screenshots of entire screen with screencapture -x (silent)
-    // and crop later... OR just take repeated interactive-less screenshots
-
-    // Simplest reliable approach: take 4 more full screenshots at intervals
-    for (let i = 2; i <= frameCount; i++) {
-      await new Promise(r => setTimeout(r, intervalMs));
-      const framePath = `${framesDir}/frame-${String(i).padStart(2, '0')}.png`;
+      // Capture full screen silently
       await new Promise<void>((resolve) => {
-        exec(`/usr/sbin/screencapture -x "${framePath}"`, { env: { ...process.env, PATH: '/usr/sbin:/usr/bin:/bin:/usr/local/bin:' + (process.env.PATH || '') } }, () => resolve());
+        exec(`/usr/sbin/screencapture -x "${framePng}"`, { env: { ...process.env, PATH: '/usr/sbin:/usr/bin:/bin:/usr/local/bin:' + (process.env.PATH || '') } }, () => resolve());
       });
     }
 
-    // 3. Get frame files
+    console.log(`🎬 All ${frameCount} frames captured, resizing...`);
+
+    // Phase 2: Resize and convert to JPEG (no time pressure)
+    for (let i = 1; i <= frameCount; i++) {
+      const framePng = `${framesDir}/frame-${String(i).padStart(2, '0')}.png`;
+      const frameJpg = `${framesDir}/frame-${String(i).padStart(2, '0')}.jpg`;
+
+      await new Promise<void>((resolve) => {
+        exec(`sips --resampleWidth ${maxWidth} --setProperty format jpeg --setProperty formatOptions 70 "${framePng}" --out "${frameJpg}"`, () => resolve());
+      });
+
+      // Remove the large PNG
+      try { rmSync(framePng); } catch {}
+    }
+
+    // Get frame files
     const frames = readdirSync(framesDir)
-      .filter(f => f.endsWith('.png'))
+      .filter(f => f.endsWith('.jpg'))
       .sort()
       .map(f => `${framesDir}/${f}`);
 
     console.log(`🎬 Captured ${frames.length} frames, sending to Kiro...`);
 
-    // 4. Paste frames one by one into Kiro chat
+    // Show completion notification
+    exec(`osascript -e 'display notification "Sending ${frames.length} frames to Kiro..." with title "🎬 Recording Complete"'`);
+
+    // Paste frames one by one into Kiro chat
+    // Extra activation and delay to ensure Kiro is truly focused
     const pasteScript = `
 ObjC.import('AppKit');
 
 var kiro = Application('Kiro');
 kiro.activate();
+delay(0.5);
+kiro.activate();
 delay(0.3);
 var se = Application('System Events');
 se.keystroke('l', {using: 'command down'});
-delay(0.3);
+delay(0.5);
 
 var files = [${frames.map(f => `"${f}"`).join(', ')}];
 var pasteboard = $.NSPasteboard.generalPasteboard;
@@ -489,7 +500,7 @@ for (var i = 0; i < files.length; i++) {
       });
     });
 
-    // 5. Cleanup after 30 seconds
+    // Cleanup after 30 seconds
     setTimeout(() => {
       try { rmSync(framesDir, { recursive: true }); } catch {}
     }, 30000);
