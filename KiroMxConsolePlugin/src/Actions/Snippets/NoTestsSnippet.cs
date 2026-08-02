@@ -12,7 +12,7 @@ namespace Loupedeck.KiroMxConsolePlugin
 
         protected override void RunCommand(String actionParameter)
         {
-            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Don't add tests unless I ask."));
+            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Skip tests for now. Focus on implementation only."));
             PluginLog.Info("📝 Snippet: No Tests");
         }
 

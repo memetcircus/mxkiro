@@ -12,7 +12,7 @@ namespace Loupedeck.KiroMxConsolePlugin
 
         protected override void RunCommand(String actionParameter)
         {
-            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Be concise, short answer."));
+            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Keep it focused. Only what is needed, nothing extra."));
             PluginLog.Info("📝 Snippet: Keep Short");
         }
 

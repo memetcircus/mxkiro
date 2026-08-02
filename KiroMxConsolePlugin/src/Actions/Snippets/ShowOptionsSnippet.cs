@@ -12,7 +12,7 @@ namespace Loupedeck.KiroMxConsolePlugin
 
         protected override void RunCommand(String actionParameter)
         {
-            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Give me 2-3 options to choose from."));
+            _ = Http.GetAsync("http://localhost:9848/snippet?text=" + Uri.EscapeDataString("Show me 2-3 alternatives with tradeoffs for each."));
             PluginLog.Info("📝 Snippet: Show Options");
         }
 
