@@ -17,6 +17,8 @@ A physical AI coding companion that connects **Logitech MX Creative Console** to
 | 🎨 **Ghost Animation** | 9-tile animated Kiro ghost walks across LCD while Kiro is working |
 | 🔥 **Context Health** | Ghost changes appearance based on real context window usage (normal → thinking → worried → fire) |
 | 📸 **Screenshot → Chat** | One button: crosshair → select area → auto-paste into Kiro chat |
+| 🎬 **Screen Record → Chat** | Capture 5 frames over 5 seconds from selected area — auto-paste into chat for visual analysis |
+| ❓ **Ask Kiro** | Select text in any app, press button — Kiro answers about the selected content |
 | ⏹️ **Stop/Cancel** | Physical button to cancel Kiro's active generation |
 | 🔄 **Session Navigate** | Dial rotation to switch between Kiro chat sessions |
 | 🆕 **New Session** | Button to open a fresh Kiro chat tab |
