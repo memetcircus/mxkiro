@@ -26,6 +26,9 @@ A physical AI coding companion that connects **Logitech MX Creative Console** to
 | ⌨️ **Terminal → Chat** | Button to send terminal errors to Kiro for analysis |
 | 📝 **Prompt Buttons** | 9 quick prompts that work on the active file: Explain, Criticize, Document, Fix Bug, Optimize, Refactor, Review, Simplify, Write Tests. Press any button and Kiro analyzes the currently open file. |
 | 📐 **Struct Prompt** | Rewrites your messy prompt into a clear, structured one |
+| 📋 **Start Spec** | Begin a spec workflow — creates requirements, design, tasks before execution |
+| 📦 **Git Commit** | Generate a commit message from current changes and commit |
+| 🔍 **Understand Workspace** | Ask Kiro to analyze and summarize the project structure |
 
 ## Architecture
 
@@ -93,6 +96,9 @@ Buttons must be assigned in this exact order for ghost animation tiles to align 
 - Terminal → Chat
 - Screen Record
 - Ask Kiro
+- Understand Workspace
+- Start Spec
+- Git Commit
 
 **Page 3 — Prompt Commands (9 buttons, animated):**
 
