@@ -15,7 +15,7 @@ A physical AI coding companion that connects **Logitech MX Creative Console** to
 | Feature | Description |
 |---------|-------------|
 | 🎨 **Ghost Animation** | 9-tile animated Kiro ghost walks across LCD while Kiro is working |
-| 🔥 **Context Health** | Ghost changes appearance based on real context window usage (normal → thinking → worried → fire) |
+| 🔥 **Context Health** | Ghost changes appearance based on real context window usage (normal → worried → fire) |
 | 📸 **Screenshot → Chat** | One button: crosshair → select area → auto-paste into Kiro chat |
 | 🎬 **Screen Record → Chat** | Quick mode (5 frames) or Long mode (10 frames) — select area, capture sequence, auto-paste into chat for visual analysis |
 | ❓ **Ask Kiro** | Select text in any app, press button — Kiro answers about the selected content |
@@ -87,7 +87,7 @@ Buttons must be assigned in this exact order for ghost animation tiles to align 
 |---|-------|-------|-------|
 | Row 1 | Screen Capture (tile 0) | Be Honest (tile 1) | Don't Code Yet (tile 2) |
 | Row 2 | Show Options (tile 3) | Explain Why (tile 4) | Stop (tile 5) |
-| Row 3 | Keep Short (tile 6) | No Tests (tile 7) | Yes (tile 8) |
+| Row 3 | Keep Short (tile 6) | No Tests (tile 7) | Go! (tile 8) |
 
 **Page 2 — Utility Controls (no animation):**
 - New Session
@@ -119,10 +119,11 @@ The ghost animation changes based on real Kiro context window usage:
 
 | Usage | Ghost | Meaning |
 |-------|-------|---------|
-| 0-50% | Normal 👻 | Plenty of context remaining |
-| 50-75% | Thinking 🤔 | Getting used up |
-| 75-90% | Worried 😰 | Running low |
-| 90%+ | On Fire 🔥 | Consider starting a new session |
+| 0-60% | Normal 👻 | Healthy working range |
+| 60-75% | Worried 😰 | Session getting long, context filling up |
+| 75%+ | On Fire 🔥 | Start a new session — auto-summarization imminent |
+
+Kiro auto-summarizes at 80%, so the fire animation warns you **before** context loss occurs.
 
 ## Development
 
