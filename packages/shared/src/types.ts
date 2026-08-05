@@ -63,8 +63,7 @@ export interface SessionInfo {
 
 export enum HealthLevel {
   NORMAL = 'normal',
-  ATTENTION = 'attention',
-  WARNING = 'warning',
+  WORRIED = 'worried',
   CRITICAL = 'critical',
 }
 

@@ -95,8 +95,65 @@ if (existsSync(powerSkillsDir)) {
   }
 }
 
-// Step 5: MCP config hint
-console.log('\n5️⃣  MCP Server configuration:');
+// Step 5: Install Bridge hooks to ALL known Kiro workspaces
+console.log('\n5️⃣  Installing Bridge hooks to all workspaces...');
+
+const KIRO_SESSIONS_BASE = join(
+  HOME,
+  'Library', 'Application Support', 'Kiro', 'User', 'globalStorage',
+  'kiro.kiroagent', 'workspace-sessions'
+);
+
+const hookWorking = JSON.stringify({
+  enabled: true,
+  name: "Notify Bridge Working",
+  description: "Notify MX Kiro Bridge when prompt is submitted (starts ghost animation).",
+  version: "1",
+  when: { type: "promptSubmit" },
+  then: { type: "runCommand", command: "curl -s http://localhost:9848/state/working" }
+}, null, 2);
+
+const hookIdle = JSON.stringify({
+  enabled: true,
+  name: "Notify Bridge Idle",
+  description: "Notify MX Kiro Bridge when agent stops (stops ghost animation).",
+  version: "1",
+  when: { type: "agentStop" },
+  then: { type: "runCommand", command: "curl -s http://localhost:9848/state/idle" }
+}, null, 2);
+
+// Discover workspace paths from Kiro session storage (base64-encoded folder names)
+if (existsSync(KIRO_SESSIONS_BASE)) {
+  const workspaceDirs = readdirSync(KIRO_SESSIONS_BASE);
+  let installed = 0;
+
+  for (const wsDir of workspaceDirs) {
+    // Decode base64 folder name to get workspace path
+    try {
+      const decoded = Buffer.from(wsDir.replace(/__/g, '==').replace(/_/g, '/'), 'base64').toString('utf-8');
+      if (!decoded.startsWith('/')) continue;
+
+      const hooksDir = join(decoded, '.kiro', 'hooks');
+      mkdirSync(hooksDir, { recursive: true });
+
+      const workingHookPath = join(hooksDir, 'notify-bridge-working.kiro.hook');
+      const idleHookPath = join(hooksDir, 'notify-bridge-idle.kiro.hook');
+
+      writeFileSync(workingHookPath, hookWorking + '\n');
+      writeFileSync(idleHookPath, hookIdle + '\n');
+      installed++;
+      console.log(`   ✅ ${decoded}`);
+    } catch {
+      // Skip invalid paths
+    }
+  }
+  console.log(`   📦 Hooks installed in ${installed} workspaces`);
+} else {
+  console.log('   ⚠️  No Kiro workspace sessions found');
+}
+
+// Step 6: MCP config hint
+console.log('\n6️⃣  MCP Server configuration:');
 console.log('   Add this to your .kiro/settings/mcp.json:');
 console.log('');
 console.log('   {');

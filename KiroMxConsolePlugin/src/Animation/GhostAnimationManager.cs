@@ -26,11 +26,9 @@ namespace Loupedeck.KiroMxConsolePlugin
 
         // Cached sprite data: [frame * TileCount + tile] = byte[]
         private Byte[][] _frameData;           // normal ghost
-        private Byte[][] _frameDataThinking;   // thinking ghost (50-75%)
-        private Byte[][] _frameDataWorried;    // worried ghost (75-90%)
-        private Byte[][] _frameDataFire;       // critical/fire ghost (90%+)
+        private Byte[][] _frameDataWorried;    // worried ghost (60-75%)
+        private Byte[][] _frameDataFire;       // critical/fire ghost (75%+)
         private Boolean _spritesLoaded;
-        private Boolean _thinkingLoaded;
         private Boolean _worriedLoaded;
         private Boolean _fireLoaded;
 
@@ -68,13 +66,6 @@ namespace Loupedeck.KiroMxConsolePlugin
                 else
                 {
                     PluginLog.Warning("👻 Normal sprites not found — animation disabled");
-                }
-
-                var thinkingPath = this.FindSpritesPath("ghost-walk-thinking");
-                if (!String.IsNullOrEmpty(thinkingPath))
-                {
-                    this._frameDataThinking = this.LoadSpriteSet(thinkingPath);
-                    this._thinkingLoaded = this._frameDataThinking != null;
                 }
 
                 var worriedPath = this.FindSpritesPath("ghost-walk-worried");
@@ -160,21 +151,28 @@ namespace Loupedeck.KiroMxConsolePlugin
         /// <summary>
         /// Get the sprite data for a specific tile at the current frame.
         /// Selects sprite set based on current health level.
+        /// Sprite set transitions only happen at frame 0 to avoid mid-animation jumps.
         /// </summary>
+        private String _activeHealthLevel = "normal";
+
         public Byte[] GetTileData(Int32 tileIndex)
         {
             if (!this._spritesLoaded || !this._isRunning) return null;
             if (tileIndex < 0 || tileIndex >= TileCount) return null;
 
-            var dataIndex = this._currentFrame * TileCount + tileIndex;
-            var health = KiroMxConsolePlugin.HealthLevel;
+            // Only switch sprite set at frame 0 (start of animation cycle)
+            if (this._currentFrame == 0)
+            {
+                this._activeHealthLevel = KiroMxConsolePlugin.HealthLevel;
+            }
 
-            // Select sprite set based on health level
-            Byte[][] activeSet = health switch
+            var dataIndex = this._currentFrame * TileCount + tileIndex;
+
+            // Select sprite set based on locked health level
+            Byte[][] activeSet = this._activeHealthLevel switch
             {
                 "critical" when this._fireLoaded => this._frameDataFire,
                 "worried" when this._worriedLoaded => this._frameDataWorried,
-                "thinking" when this._thinkingLoaded => this._frameDataThinking,
                 _ => this._frameData,
             };
 

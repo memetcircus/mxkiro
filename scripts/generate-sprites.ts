@@ -218,7 +218,7 @@ async function generateGhostWalkFrames(
         tileCtx.drawImage(canvas, srcX, srcY, TILE_SIZE, TILE_SIZE, 0, 0, TILE_SIZE, TILE_SIZE);
 
         const tileIndex = row * 3 + col;
-        const tileBuffer = tileCanvas.toBuffer('image/png');
+        const tileBuffer = tileCanvas.toBuffer('image/png', { compressionLevel: 9 });
         writeFileSync(
           join(OUTPUT_DIR, 'tiles', outSubdir, `frame-${String(frame).padStart(2, '0')}-tile-${tileIndex}.png`),
           tileBuffer

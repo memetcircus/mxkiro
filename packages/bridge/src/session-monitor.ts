@@ -115,9 +115,9 @@ export class SessionMonitor {
     if (s.tokenCount >= HEALTH_CRITICAL_TOKENS) {
       level = HealthLevel.CRITICAL;
     } else if (s.tokenCount >= HEALTH_ALERT_TOKENS) {
-      level = HealthLevel.WARNING;
+      level = HealthLevel.WORRIED;
     } else if (s.tokenCount >= HEALTH_WARN_TOKENS) {
-      level = HealthLevel.ATTENTION;
+      level = HealthLevel.WORRIED;
     }
 
     const durationMinutes = s.createdAt

@@ -79,9 +79,13 @@ export class HttpServer {
   }
 
   setState(state: string): void {
+    const prev = this.currentState;
     this.currentState = state;
     if (state === 'working') {
       this.lastWorkingTime = Date.now();
+    }
+    if (prev !== state) {
+      console.log(`⚡ setState: ${prev} → ${state} (caller: ${new Error().stack?.split('\n')[2]?.trim()})`);
     }
   }
 
@@ -128,6 +132,9 @@ export class HttpServer {
         const state = this.mapState(stateValue);
 
         if (state) {
+          // Log the source for debugging
+          const caller = req.headers['user-agent'] || 'unknown';
+          console.log(`🔔 /state/${stateValue} called (agent: ${caller})`);
           this.stateChangeHandler?.(state);
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ ok: true, state: this.currentState }));

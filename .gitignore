@@ -4,5 +4,9 @@ dist/
 .env
 .DS_Store
 *.log
-# Keep generated sprites in repo (node-canvas dependency not needed at runtime)
+
+# Kiro IDE config (workspace-specific, not for remote)
+.kiro/
+
+# Internal docs (not for public)
 docs/video-script.md

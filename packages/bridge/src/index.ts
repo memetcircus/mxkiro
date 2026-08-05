@@ -37,15 +37,22 @@ const CANCEL_WORKING_SUPPRESSION_MS = 5000;
 // Real context usage from Kiro IDE session files
 let contextUsagePercent = 0;
 
+// File-based state detection: track last session file modification time
+let lastSessionMtime = 0;
+let lastSessionSize = 0; // Track file size to distinguish real work from metadata updates
+let lastMtimeChangeAt = 0; // timestamp when mtime last changed
+const FILE_IDLE_TIMEOUT_MS = 15000; // 15s no mtime change → idle
+const FILE_POLL_INTERVAL_MS = 3000; // poll every 3s (always on)
+const MIN_SIZE_CHANGE_BYTES = 500; // minimum size change to consider as "real work"
+
 // Health thresholds based on real context window usage percentage
-const HEALTH_THINKING_MIN = 50;  // 50%+
-const HEALTH_WORRIED_MIN = 75;   // 75%+
-const HEALTH_CRITICAL_MIN = 90;  // 90%+
+// Kiro auto-summarizes at 80%, so we warn BEFORE that happens
+const HEALTH_WORRIED_MIN = 60;   // 60%+ → session getting long
+const HEALTH_CRITICAL_MIN = 75;  // 75%+ → new session recommended (summarization imminent)
 
 function getHealthLevel(): string {
   if (contextUsagePercent >= HEALTH_CRITICAL_MIN) return 'critical';
   if (contextUsagePercent >= HEALTH_WORRIED_MIN) return 'worried';
-  if (contextUsagePercent >= HEALTH_THINKING_MIN) return 'thinking';
   return 'normal';
 }
 
@@ -134,8 +141,9 @@ wsServer.onMessage((msg) => {
 
 // --- Wire Kiro → Bridge → Plugin ---
 
-// --- Context Usage Reader ---
+// --- Context Usage Reader (Always-On, File-Based State Detection) ---
 // Reads real context window usage from Kiro IDE workspace session files.
+// Also detects working/idle state by monitoring file mtime changes.
 // Path: ~/Library/Application Support/Kiro/User/globalStorage/kiro.kiroagent/workspace-sessions/<base64-workspace>/
 
 const KIRO_SESSIONS_BASE = join(
@@ -144,34 +152,42 @@ const KIRO_SESSIONS_BASE = join(
   'kiro.kiroagent', 'workspace-sessions'
 );
 
-async function readContextUsage(): Promise<number> {
-  try {
-    if (!existsSync(KIRO_SESSIONS_BASE)) return 0;
+interface SessionFileResult {
+  usage: number;
+  mtime: number;
+  totalSize: number;
+}
 
-    // Find workspace folders
+async function readLatestSessionFile(): Promise<SessionFileResult> {
+  try {
+    if (!existsSync(KIRO_SESSIONS_BASE)) return { usage: 0, mtime: 0, totalSize: 0 };
+
     const workspaceDirs = await readdir(KIRO_SESSIONS_BASE);
 
-    let latestUsage = 0;
     let latestMtime = 0;
+    let latestFilePath = '';
+    let latestSize = 0;
 
+    // Find the single most recently modified session file across ALL workspaces
     for (const wsDir of workspaceDirs) {
       const wsPath = join(KIRO_SESSIONS_BASE, wsDir);
-      const files = await readdir(wsPath);
+      let files: string[];
+      try {
+        files = await readdir(wsPath);
+      } catch {
+        continue;
+      }
 
-      // Find most recently modified session JSON (not sessions.json)
       for (const file of files) {
         if (file === 'sessions.json' || !file.endsWith('.json')) continue;
         const filePath = join(wsPath, file);
 
         try {
-          const { mtimeMs } = await import('node:fs').then(fs => fs.statSync(filePath));
-          if (mtimeMs > latestMtime) {
-            const raw = await readFile(filePath, 'utf-8');
-            const data = JSON.parse(raw);
-            if (typeof data.contextUsagePercentage === 'number') {
-              latestUsage = data.contextUsagePercentage;
-              latestMtime = mtimeMs;
-            }
+          const stat = await import('node:fs').then(fs => fs.statSync(filePath));
+          if (stat.mtimeMs > latestMtime) {
+            latestMtime = stat.mtimeMs;
+            latestFilePath = filePath;
+            latestSize = stat.size;
           }
         } catch {
           // Skip unreadable files
@@ -179,33 +195,54 @@ async function readContextUsage(): Promise<number> {
       }
     }
 
-    return latestUsage;
+    if (!latestFilePath) return { usage: 0, mtime: 0, totalSize: 0 };
+
+    // Only read if mtime actually changed (avoid redundant reads)
+    if (latestMtime <= lastSessionMtime) {
+      return { usage: contextUsagePercent, mtime: latestMtime, totalSize: latestSize };
+    }
+
+    // Read the single most recent file
+    try {
+      const raw = await readFile(latestFilePath, 'utf-8');
+      const data = JSON.parse(raw);
+      const usage = typeof data.contextUsagePercentage === 'number'
+        ? data.contextUsagePercentage
+        : 0;
+      return { usage, mtime: latestMtime, totalSize: latestSize };
+    } catch {
+      return { usage: contextUsagePercent, mtime: latestMtime, totalSize: latestSize };
+    }
   } catch {
-    return 0;
+    return { usage: 0, mtime: 0, totalSize: 0 };
   }
 }
 
-// Poll context usage every 2 seconds when working
-let contextPollTimer: ReturnType<typeof setInterval> | null = null;
+// Always-on poller: reads context health from session files (does NOT trigger state changes)
+// Always-on poller: reads health from session files while WORKING.
+// Does NOT trigger state changes — that's hooks' job.
+let lastPolledUsage = 0;
 
-function startContextPolling() {
-  if (contextPollTimer) return;
-  contextPollTimer = setInterval(async () => {
-    const usage = await readContextUsage();
-    if (usage !== contextUsagePercent) {
+function startAlwaysOnPoller() {
+  setInterval(async () => {
+    const { usage, mtime, totalSize } = await readLatestSessionFile();
+
+    // Always update mtime tracking
+    if (mtime > lastSessionMtime) {
+      lastSessionMtime = mtime;
+      lastSessionSize = totalSize;
+    }
+
+    // Only update health when state is WORKING
+    // Health can only go UP during a working session
+    if (bridgeState === KiroState.WORKING && usage > contextUsagePercent && usage > 0) {
       contextUsagePercent = usage;
+      lastPolledUsage = usage;
       const level = getHealthLevel();
       httpServer.setHealth(Math.round(usage), level);
-      console.log(`📊 Context usage: ${usage.toFixed(1)}% (health: ${level})`);
+      console.log(`📊 Context: ${usage.toFixed(1)}% (${level})`);
     }
-  }, 2000);
-}
-
-function stopContextPolling() {
-  if (contextPollTimer) {
-    clearInterval(contextPollTimer);
-    contextPollTimer = null;
-  }
+  }, FILE_POLL_INTERVAL_MS);
 }
 
 httpServer.onStateChange((state) => {
@@ -222,27 +259,25 @@ httpServer.onStateChange((state) => {
   bridgeState = state;
   httpServer.setState(state);
 
-  // Start/stop context usage polling based on state
+  // Hook-based working: instant response (faster than file-based 3s poll)
   if (state === KiroState.WORKING && previousState !== KiroState.WORKING) {
     messageCount++;
-    startContextPolling();
-    // Read context usage immediately on state change
-    void readContextUsage().then((usage) => {
-      contextUsagePercent = usage;
-      httpServer.setHealth(Math.round(usage), getHealthLevel());
+    lastMtimeChangeAt = Date.now();
+    // Immediately read context usage for correct health level
+    void readLatestSessionFile().then(({ usage, mtime, totalSize }) => {
+      if (usage > 0 && usage >= contextUsagePercent) {
+        contextUsagePercent = usage;
+        lastPolledUsage = usage;
+        lastSessionMtime = mtime;
+        lastSessionSize = totalSize;
+        httpServer.setHealth(Math.round(usage), getHealthLevel());
+        console.log(`📊 Context: ${usage.toFixed(1)}% (${getHealthLevel()})`);
+      }
     });
-  } else if (state === KiroState.IDLE) {
-    // One final read when going idle, then stop polling
-    void readContextUsage().then((usage) => {
-      contextUsagePercent = usage;
-      httpServer.setHealth(Math.round(usage), getHealthLevel());
-      console.log(`📊 Context usage: ${usage.toFixed(1)}% (health: ${getHealthLevel()})`);
-    });
-    stopContextPolling();
   }
 
-  // Clear auto-idle timer when hook reports state
-  if (idleTimer && state === KiroState.IDLE) {
+  // Hook-based idle: instant response
+  if (state === KiroState.IDLE && idleTimer) {
     clearTimeout(idleTimer);
     idleTimer = null;
   }
@@ -290,20 +325,26 @@ function shortenPrompt(text: string): string {
 httpServer.onSessionReset(() => {
   messageCount = 0;
   contextUsagePercent = 0;
+  lastPolledUsage = 0;
   bridgeState = KiroState.IDLE;
   suppressWorkingUntil = 0;
+  lastSessionMtime = 0;
+  lastSessionSize = 0;
+  lastMtimeChangeAt = 0;
   httpServer.setHealth(0, 'normal');
-  stopContextPolling();
   console.log('📊 Session reset — context usage cleared');
 });
 
 httpServer.onNewSession(() => {
   messageCount = 0;
   contextUsagePercent = 0;
+  lastPolledUsage = 0;
   bridgeState = KiroState.IDLE;
   suppressWorkingUntil = 0;
+  lastSessionMtime = 0;
+  lastSessionSize = 0;
+  lastMtimeChangeAt = 0;
   httpServer.setHealth(0, 'normal');
-  stopContextPolling();
   // Open new session in Kiro IDE: Cmd+L to focus chat, then Cmd+T for new session
   void (async () => {
     try {
@@ -429,12 +470,16 @@ await acpClient.connect();
 import { exec } from 'node:child_process';
 exec('defaults write com.apple.screencapture show-thumbnail -bool false');
 
+// Start always-on session file poller (detects working/idle from any workspace)
+startAlwaysOnPoller();
+
 console.log('');
 console.log(`✅ MX Kiro Bridge ready!`);
 console.log(`   WebSocket: ws://localhost:${BRIDGE_PORT}`);
 console.log(`   HTTP (hooks): http://localhost:${BRIDGE_PORT + 1}`);
 console.log(`   ACP: ${acpClient.isConnected() ? '🟢 connected' : '🟡 offline mode'}`);
 console.log(`   Sessions: ${sessionMonitor.getSessionCount()} found`);
+console.log(`   📂 File-based state detection: ON (poll every ${FILE_POLL_INTERVAL_MS / 1000}s, idle after ${FILE_IDLE_TIMEOUT_MS / 1000}s)`);
 console.log('');
 if (acpClient.isConnected()) {
   console.log('   🎮 Ready — button presses will reach Kiro!');
@@ -444,9 +489,12 @@ if (acpClient.isConnected()) {
 }
 
 // Read initial context usage on startup
-const initialUsage = await readContextUsage();
+const { usage: initialUsage, mtime: initialMtime, totalSize: initialSize } = await readLatestSessionFile();
 if (initialUsage > 0) {
   contextUsagePercent = initialUsage;
+  lastPolledUsage = initialUsage; // Set baseline so we don't false-trigger on startup
+  lastSessionMtime = initialMtime;
+  lastSessionSize = initialSize;
   httpServer.setHealth(Math.round(initialUsage), getHealthLevel());
   console.log(`   📊 Context usage: ${initialUsage.toFixed(1)}% (health: ${getHealthLevel()})`);
 }
